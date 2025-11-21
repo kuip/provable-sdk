@@ -2,9 +2,7 @@
 Provable SDK Types
 """
 
-from typing import TypedDict, Generic, TypeVar, Optional, Any, Dict
-
-T = TypeVar('T')
+from typing import TypedDict, Optional, Any, Dict
 
 
 class KayrosTimestamp(TypedDict, total=False):
@@ -18,8 +16,8 @@ class KayrosMetadata(TypedDict, total=False):
     timestamp: KayrosTimestamp
 
 
-class KayrosEnvelope(TypedDict, Generic[T]):
-    data: T
+class KayrosEnvelope(TypedDict):
+    data: Any
     kayros: KayrosMetadata
 
 

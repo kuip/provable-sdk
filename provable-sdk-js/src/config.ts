@@ -10,7 +10,7 @@ export const API_ROUTES = {
 } as const;
 
 // "provable_sdk" (0x70726f7661626c655f73646b) padded to 32 bytes
-export const DATA_TYPE = "70726f7661626c655f73646b00000000000000000000000000000000000000000000";
+export const DATA_TYPE = "70726f7661626c655f73646b0000000000000000000000000000000000000000";
 
 export function getKayrosUrl(route: string): string {
   return KayrosHost + route;

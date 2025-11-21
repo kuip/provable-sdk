@@ -18,7 +18,7 @@ const (
 
 	// DataType is the data type identifier for Kayros API
 	// "provable_sdk" (0x70726f7661626c655f73646b) padded to 32 bytes
-	DataType = "70726f7661626c655f73646b00000000000000000000000000000000000000000000"
+	DataType = "70726f7661626c655f73646b0000000000000000000000000000000000000000"
 )
 
 // GetKayrosURL builds a full Kayros API URL from a route
