@@ -1,0 +1,110 @@
+syntax = "proto3";
+
+package lightnet;
+
+option go_package = "github.com/provable/provable-sdk-go/proto/lightnet";
+
+service HashService {
+    rpc SubmitHash(HashRequest) returns (HashResponse);
+    rpc SubmitHashStream(stream HashRequest) returns (stream HashResponse);
+    rpc DebugHash(DebugHashRequest) returns (DebugHashResponse);
+    rpc GetDatabaseStats(DatabaseStatsRequest) returns (DatabaseStatsResponse);
+    rpc GetRecord(GetRecordRequest) returns (GetRecordResponse);
+    rpc GetMerkleProof(MerkleProofRequest) returns (MerkleProofResponse);
+    rpc GetMerkleRoot(MerkleRootRequest) returns (MerkleRootResponse);
+    rpc VerifyMerkleProof(VerifyMerkleProofRequest) returns (VerifyMerkleProofResponse);
+}
+
+message HashRequest {
+    bytes data_type = 1;  // Must be exactly 32 bytes
+    bytes data_item = 2;  // Must be exactly 32 bytes
+    bytes user_key = 3;   // User API key (SHA256, exactly 32 bytes) - optional for backwards compatibility
+}
+
+message HashResponse {
+    bool success = 1;
+    string message = 2;
+    string computed_hash_hex = 3;    // The computed hash as hex string
+    string timeuuid_hex = 4;         // TimeUUID as hex string
+    string data_type_hex = 5;        // data_type as hex string (echoed back)
+    string data_item_hex = 6;        // data_item as hex string (echoed back)
+}
+
+message DebugHashRequest {
+    bytes data_type = 1;  // Must be exactly 32 bytes
+    bytes data_item = 2;  // Must be exactly 32 bytes
+}
+
+message DebugHashResponse {
+    bool success = 1;
+    string message = 2;
+    string hash_input_hex = 3;
+    string computed_hash_hex = 4;
+    string prev_hash_hex = 5;
+    string uuid_hex = 6;
+}
+
+message DatabaseStatsRequest {
+    // Empty request - just get current stats
+}
+
+message DatabaseStatsResponse {
+    bool success = 1;
+    string message = 2;
+    int64 total_records = 3;
+}
+
+message GetRecordRequest {
+    bytes data_type = 1;  // Must be exactly 32 bytes
+    bytes data_item = 2;  // Must be exactly 32 bytes
+}
+
+message GetRecordResponse {
+    bool success = 1;
+    string message = 2;
+    // Record data (only present if success = true)
+    string uuid_hex = 3;        // TimeUUID as hex string
+    string data_type_hex = 4;   // data_type as hex string
+    string data_item_hex = 5;   // data_item as hex string
+    string hash_item_hex = 6;   // computed hash as hex string
+    string timestamp = 7;       // timestamp in ISO format
+}
+
+// Merkle proof messages
+message MerkleProofRequest {
+    int64 hash_position = 1;    // Position of the hash in the sequence
+}
+
+message MerkleProofResponse {
+    bool success = 1;
+    string message = 2;
+    repeated string proof_hashes_hex = 3;  // Array of sibling hashes as hex strings
+    int32 levels = 4;                      // Number of levels in the proof
+    int64 position = 5;                    // Original position of the hash
+    string root_hash_hex = 6;              // Computed root hash from proof hashes
+}
+
+message MerkleRootRequest {
+    // Empty request - get current merkle root
+}
+
+message MerkleRootResponse {
+    bool success = 1;
+    string message = 2;
+    string root_hash_hex = 3;              // Current merkle root as hex string
+    int64 total_records = 4;               // Total number of records in the tree
+}
+
+message VerifyMerkleProofRequest {
+    string target_hash_hex = 1;            // The hash to verify (32 bytes as hex)
+    repeated string proof_hashes_hex = 2;  // Array of sibling hashes as hex strings
+    int32 levels = 3;                      // Number of levels in the proof
+    int64 position = 4;                    // Position of the hash in the sequence
+    string root_hash_hex = 5;              // Expected root hash as hex string
+}
+
+message VerifyMerkleProofResponse {
+    bool success = 1;
+    string message = 2;
+    bool is_valid = 3;                     // Whether the proof is valid
+}

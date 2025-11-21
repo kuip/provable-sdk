@@ -2,16 +2,23 @@
  * Kayros API client
  */
 
-import { getKayrosUrl, API_ROUTES, DATA_TYPE } from './config';
+import { getKayrosUrl, API_ROUTES, DATA_TYPE, validateDataType } from './config';
 import type { ProveSingleHashResponse, GetRecordResponse } from './types';
 
 /**
  * Call Kayros API to prove a single hash
  * @param dataHash - The hash to prove (hex string)
+ * @param dataType - Optional data type identifier (defaults to "provable_sdk" padded to 32 bytes)
  * @returns Promise with the Kayros response
+ * @throws Error if dataType is provided but not exactly 64 hex characters
  */
-export async function prove_single_hash(dataHash: string): Promise<ProveSingleHashResponse> {
+export async function prove_single_hash(dataHash: string, dataType?: string): Promise<ProveSingleHashResponse> {
   const url = getKayrosUrl(API_ROUTES.PROVE_SINGLE_HASH);
+
+  const dt = dataType ?? DATA_TYPE;
+  if (dataType !== undefined) {
+    validateDataType(dataType);
+  }
 
   const response = await fetch(url, {
     method: 'POST',
@@ -20,7 +27,7 @@ export async function prove_single_hash(dataHash: string): Promise<ProveSingleHa
     },
     body: JSON.stringify({
       data_item: dataHash,
-      data_type: DATA_TYPE,
+      data_type: dt,
     }),
   });
 

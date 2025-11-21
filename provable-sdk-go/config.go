@@ -1,5 +1,10 @@
 package provable
 
+import (
+	"fmt"
+	"regexp"
+)
+
 // Configuration constants
 const (
 	// KayrosHost is the base URL for the Kayros API
@@ -12,10 +17,28 @@ const (
 	GetRecordByHashRoute = "/api/database/record-by-hash"
 
 	// DataType is the data type identifier for Kayros API
-	DataType = "70726f7661626c655f666f726d73000000000000000000000000000000000000"
+	// "provable_sdk" (0x70726f7661626c655f73646b) padded to 32 bytes
+	DataType = "70726f7661626c655f73646b00000000000000000000000000000000000000000000"
 )
 
 // GetKayrosURL builds a full Kayros API URL from a route
 func GetKayrosURL(route string) string {
 	return KayrosHost + route
+}
+
+// ValidateDataType validates that a data type is exactly 32 bytes (64 hex characters)
+func ValidateDataType(dataType string) error {
+	if len(dataType) != 64 {
+		return fmt.Errorf("data_type must be exactly 64 hex characters (32 bytes), got %d characters", len(dataType))
+	}
+
+	matched, err := regexp.MatchString("^[0-9a-fA-F]{64}$", dataType)
+	if err != nil {
+		return fmt.Errorf("failed to validate data_type: %w", err)
+	}
+	if !matched {
+		return fmt.Errorf("data_type must contain only valid hex characters (0-9, a-f, A-F)")
+	}
+
+	return nil
 }

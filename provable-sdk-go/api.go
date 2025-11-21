@@ -9,12 +9,21 @@ import (
 )
 
 // ProveSingleHash calls the Kayros API to prove a single hash
-func ProveSingleHash(dataHash string) (*ProveSingleHashResponse, error) {
+// dataType is optional and defaults to "provable_sdk" padded to 32 bytes
+func ProveSingleHash(dataHash string, dataType ...string) (*ProveSingleHashResponse, error) {
 	url := GetKayrosURL(ProveSingleHashRoute)
+
+	dt := DataType
+	if len(dataType) > 0 && dataType[0] != "" {
+		dt = dataType[0]
+		if err := ValidateDataType(dt); err != nil {
+			return nil, err
+		}
+	}
 
 	requestBody := map[string]string{
 		"data_item": dataHash,
-		"data_type": DataType,
+		"data_type": dt,
 	}
 
 	jsonData, err := json.Marshal(requestBody)
