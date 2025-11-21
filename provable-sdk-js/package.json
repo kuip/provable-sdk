@@ -1,0 +1,22 @@
+{
+  "name": "@provable/sdk-js",
+  "version": "0.1.0",
+  "description": "Provable SDK for TypeScript/JavaScript",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": ["provable", "kayros", "keccak256", "hash", "blockchain"],
+  "author": "Provable",
+  "license": "MIT",
+  "dependencies": {
+    "js-sha3": "^0.9.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
