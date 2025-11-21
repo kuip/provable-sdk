@@ -51,42 +51,52 @@ func Verify(envelope *KayrosEnvelope) *VerifyResult {
 
 	// If there's a timestamp, verify against remote record
 	if envelope.Kayros.Timestamp != nil {
-		timestampResponse, ok := envelope.Kayros.Timestamp.Response.(map[string]interface{})
-		if !ok {
-			return &VerifyResult{
-				Valid: false,
-				Error: "Invalid timestamp response structure",
-				Details: &VerifyResultDetails{
-					HashMatch:    true,
-					ComputedHash: computedHash,
-					EnvelopeHash: envelopeHash,
-				},
-			}
-		}
+		var remoteHash string
 
-		data, ok := timestampResponse["data"].(map[string]interface{})
-		if !ok {
-			return &VerifyResult{
-				Valid: false,
-				Error: "Invalid timestamp response structure: missing data",
-				Details: &VerifyResultDetails{
-					HashMatch:    true,
-					ComputedHash: computedHash,
-					EnvelopeHash: envelopeHash,
-				},
+		// Try to use typed response first
+		if typedResponse, ok := envelope.Kayros.Timestamp.Response.(*ProveSingleHashResponse); ok {
+			remoteHash = typedResponse.Data.ComputedHashHex
+		} else if typedResponse, ok := envelope.Kayros.Timestamp.Response.(ProveSingleHashResponse); ok {
+			remoteHash = typedResponse.Data.ComputedHashHex
+		} else {
+			// Fallback to map[string]interface{} for backward compatibility
+			timestampResponse, ok := envelope.Kayros.Timestamp.Response.(map[string]interface{})
+			if !ok {
+				return &VerifyResult{
+					Valid: false,
+					Error: "Invalid timestamp response structure",
+					Details: &VerifyResultDetails{
+						HashMatch:    true,
+						ComputedHash: computedHash,
+						EnvelopeHash: envelopeHash,
+					},
+				}
 			}
-		}
 
-		remoteHash, ok := data["computed_hash_hex"].(string)
-		if !ok {
-			return &VerifyResult{
-				Valid: false,
-				Error: "Invalid timestamp response structure: missing computed_hash_hex",
-				Details: &VerifyResultDetails{
-					HashMatch:    true,
-					ComputedHash: computedHash,
-					EnvelopeHash: envelopeHash,
-				},
+			data, ok := timestampResponse["data"].(map[string]interface{})
+			if !ok {
+				return &VerifyResult{
+					Valid: false,
+					Error: "Invalid timestamp response structure: missing data",
+					Details: &VerifyResultDetails{
+						HashMatch:    true,
+						ComputedHash: computedHash,
+						EnvelopeHash: envelopeHash,
+					},
+				}
+			}
+
+			remoteHash, ok = data["computed_hash_hex"].(string)
+			if !ok {
+				return &VerifyResult{
+					Valid: false,
+					Error: "Invalid timestamp response structure: missing computed_hash_hex",
+					Details: &VerifyResultDetails{
+						HashMatch:    true,
+						ComputedHash: computedHash,
+						EnvelopeHash: envelopeHash,
+					},
+				}
 			}
 		}
 
