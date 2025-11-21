@@ -95,6 +95,7 @@ install-js:
 install-py:
 	@echo "Installing Python SDK dependencies..."
 	@cd provable-sdk-py && pip install -e ".[dev]"
+	@pip install build twine
 
 # Install Go dependencies
 install-go:
