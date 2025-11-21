@@ -62,4 +62,4 @@ export type {
 } from './types';
 
 // Export config
-export { KayrosHost, API_ROUTES, DATA_TYPE } from './config';
+export { KayrosHost, API_ROUTES, DATA_TYPE, getKayrosUrl, getRecordUrl } from './config';

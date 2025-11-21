@@ -26,6 +26,11 @@ func GetKayrosURL(route string) string {
 	return KayrosHost + route
 }
 
+// GetRecordURL returns the URL to view a record on Kayros by its hash
+func GetRecordURL(hash string) string {
+	return fmt.Sprintf("%s/api/database/record-by-hash?hash_item=%s", KayrosHost, hash)
+}
+
 // ValidateDataType validates that a data type is exactly 32 bytes (64 hex characters)
 func ValidateDataType(dataType string) error {
 	if len(dataType) != 64 {

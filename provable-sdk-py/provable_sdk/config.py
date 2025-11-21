@@ -18,6 +18,19 @@ def get_kayros_url(route: str) -> str:
     return KAYROS_HOST + route
 
 
+def get_record_url(hash: str) -> str:
+    """
+    Get the URL to view a record on Kayros by its hash
+
+    Args:
+        hash: The hash to look up
+
+    Returns:
+        The full URL to view the record
+    """
+    return f"{KAYROS_HOST}/api/database/record-by-hash?hash_item={hash}"
+
+
 def validate_data_type(data_type: str) -> None:
     """
     Validates that a data type is exactly 32 bytes (64 hex characters)

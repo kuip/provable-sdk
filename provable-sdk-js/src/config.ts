@@ -17,6 +17,15 @@ export function getKayrosUrl(route: string): string {
 }
 
 /**
+ * Get the URL to view a record on Kayros by its hash
+ * @param hash - The hash to look up
+ * @returns The full URL to view the record
+ */
+export function getRecordUrl(hash: string): string {
+  return `${KayrosHost}/api/database/record-by-hash?hash_item=${hash}`;
+}
+
+/**
  * Validates that a data type is exactly 32 bytes (64 hex characters)
  * @param dataType - The data type to validate
  * @throws Error if data type is not exactly 64 hex characters
