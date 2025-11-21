@@ -1,4 +1,6 @@
-.PHONY: help test test-js test-py test-go coverage coverage-js coverage-py coverage-go install install-js install-py install-go clean
+.PHONY: help test test-js test-py test-go coverage coverage-js coverage-py coverage-go install install-js install-py install-go clean \
+	build build-js build-py build-go publish publish-js publish-py publish-go publish-all \
+	publish-dry-run publish-dry-run-js publish-dry-run-py tag-go version-js version-py version-go
 
 # Default target
 help:
@@ -19,6 +21,20 @@ help:
 	@echo "  make install-js    - Install TypeScript dependencies"
 	@echo "  make install-py    - Install Python dependencies"
 	@echo "  make install-go    - Install Go dependencies"
+	@echo ""
+	@echo "  make build         - Build all SDK packages"
+	@echo "  make build-js      - Build TypeScript package"
+	@echo "  make build-py      - Build Python package"
+	@echo "  make build-go      - Build/verify Go package"
+	@echo ""
+	@echo "  make publish       - Publish all SDK packages (use with caution!)"
+	@echo "  make publish-js    - Publish TypeScript package to npm"
+	@echo "  make publish-py    - Publish Python package to PyPI"
+	@echo "  make publish-go    - Tag and push Go module (requires VERSION=vX.Y.Z)"
+	@echo ""
+	@echo "  make publish-dry-run    - Test publish for JS and Python without uploading"
+	@echo "  make publish-dry-run-js - Test npm publish without uploading"
+	@echo "  make publish-dry-run-py - Test PyPI publish without uploading"
 	@echo ""
 	@echo "  make clean         - Clean build artifacts"
 
@@ -128,3 +144,123 @@ format:
 # CI target - runs tests suitable for continuous integration
 ci: test coverage
 	@echo "✓ CI tests complete!"
+
+# Build targets
+build: build-js build-py build-go
+	@echo ""
+	@echo "✓ All packages built successfully!"
+
+build-js:
+	@echo "Building TypeScript SDK..."
+	@cd provable-sdk-js && npm run build
+	@echo "✓ TypeScript build complete!"
+
+build-py:
+	@echo "Building Python SDK..."
+	@cd provable-sdk-py && python -m build
+	@echo "✓ Python build complete!"
+
+build-go:
+	@echo "Verifying Go SDK builds..."
+	@cd provable-sdk-go && go build ./...
+	@echo "✓ Go build verification complete!"
+
+# Publish targets
+publish-js: test-js
+	@echo "Publishing TypeScript SDK to npm..."
+	@VERSION=$$(cd provable-sdk-js && node -p "require('./package.json').version"); \
+	echo "Version: $$VERSION"; \
+	echo "⚠️  This will:"; \
+	echo "  1. Publish to npm"; \
+	echo "  2. Create git tag js-v$$VERSION"; \
+	echo "  3. Push tag and commits to main"; \
+	echo ""; \
+	echo "Press Ctrl+C to cancel, or Enter to continue..."; \
+	read -r; \
+	cd provable-sdk-js && npm publish && \
+	cd .. && git tag -a "js-v$$VERSION" -m "Release TypeScript SDK v$$VERSION" && \
+	git push origin main && \
+	git push origin "js-v$$VERSION"
+	@echo "✓ TypeScript SDK published and tagged!"
+
+publish-py: test-py build-py
+	@echo "Publishing Python SDK to PyPI..."
+	@VERSION=$$(cd provable-sdk-py && grep '^version = ' pyproject.toml | cut -d'"' -f2); \
+	echo "Version: $$VERSION"; \
+	echo "⚠️  This will:"; \
+	echo "  1. Publish to PyPI"; \
+	echo "  2. Create git tag py-v$$VERSION"; \
+	echo "  3. Push tag and commits to main"; \
+	echo ""; \
+	echo "Press Ctrl+C to cancel, or Enter to continue..."; \
+	read -r; \
+	cd provable-sdk-py && python -m twine upload dist/* && \
+	cd .. && git tag -a "py-v$$VERSION" -m "Release Python SDK v$$VERSION" && \
+	git push origin main && \
+	git push origin "py-v$$VERSION"
+	@echo "✓ Python SDK published and tagged!"
+
+publish-go: test-go
+	@echo "Publishing Go SDK..."
+	@if [ -z "$(VERSION)" ]; then \
+		echo "❌ Error: VERSION not specified. Usage: make publish-go VERSION=v0.1.0"; \
+		exit 1; \
+	fi
+	@echo "Version: $(VERSION)"
+	@echo "⚠️  This will:"
+	@echo "  1. Create git tag go-$(VERSION)"
+	@echo "  2. Push tag and commits to main"
+	@echo ""
+	@echo "Press Ctrl+C to cancel, or Enter to continue..."
+	@read -r
+	@git tag -a "go-$(VERSION)" -m "Release Go SDK $(VERSION)"
+	@git push origin main
+	@git push origin "go-$(VERSION)"
+	@echo "✓ Go SDK published with tag go-$(VERSION)!"
+	@echo "Users can install with: go get github.com/provable/provable-sdk-go@go-$(VERSION)"
+
+# Publish all SDKs (alias for publish-all)
+publish: publish-all
+
+# Publish all SDKs (dangerous - use with caution!)
+publish-all:
+	@echo "⚠️  WARNING: This will publish ALL SDK packages!"
+	@echo "Make sure you have:"
+	@echo "  1. Bumped versions in all package files"
+	@echo "  2. Updated changelogs"
+	@echo "  3. Run all tests (make test)"
+	@echo "  4. Committed all changes"
+	@echo ""
+	@echo "Press Ctrl+C to cancel, or Enter to continue..."
+	@read -r
+	@make publish-js
+	@make publish-py
+	@echo ""
+	@echo "✓ JavaScript and Python SDKs published!"
+	@echo ""
+	@echo "For Go SDK, run: make publish-go VERSION=vX.Y.Z"
+
+# Dry run publish (test without actually publishing)
+publish-dry-run: publish-dry-run-js publish-dry-run-py
+	@echo ""
+	@echo "✓ Dry run completed for all packages!"
+
+publish-dry-run-js:
+	@echo "Dry run: Publishing TypeScript SDK..."
+	@cd provable-sdk-js && npm publish --dry-run
+	@echo "✓ TypeScript dry run complete!"
+
+publish-dry-run-py: build-py
+	@echo "Dry run: Publishing Python SDK..."
+	@cd provable-sdk-py && python -m twine check dist/*
+	@echo "✓ Python dry run complete!"
+
+# Helper targets for version management
+version-js:
+	@cd provable-sdk-js && npm version
+
+version-py:
+	@cd provable-sdk-py && grep "version = " pyproject.toml
+
+version-go:
+	@cd provable-sdk-go && git tag --list | grep "^v" | sort -V | tail -1

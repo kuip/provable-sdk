@@ -5,7 +5,7 @@ A TypeScript/JavaScript SDK for interacting with the Provable Kayros API.
 ## Installation
 
 ```bash
-npm install @provable/sdk-js
+npm install provable-sdk-js
 ```
 
 ## Usage
@@ -22,7 +22,7 @@ import {
   prove_data_str,
   verify,
   type KayrosEnvelope,
-} from '@provable/sdk-js';
+} from 'provable-sdk-js';
 
 // Hash bytes
 const data = new Uint8Array([1, 2, 3, 4]);

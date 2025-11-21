@@ -1,6 +1,6 @@
 {
-  "name": "@provable/sdk-js",
-  "version": "0.1.0",
+  "name": "provable-sdk-js",
+  "version": "0.0.1",
   "description": "Provable SDK for TypeScript/JavaScript",
   "main": "src/index.ts",
   "types": "src/index.ts",
@@ -8,8 +8,7 @@
     "build": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "prepublishOnly": "npm run build"
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": ["provable", "kayros", "keccak256", "hash", "blockchain"],
   "author": "Provable",
