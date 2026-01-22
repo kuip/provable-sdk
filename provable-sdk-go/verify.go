@@ -3,8 +3,24 @@ package provable
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
+
+// computeHash computes a hash using the specified algorithm
+func computeHash(data string, algorithm string) string {
+	normalizedAlgorithm := strings.ToLower(algorithm)
+	if normalizedAlgorithm == "" {
+		normalizedAlgorithm = "keccak256"
+	}
+
+	if normalizedAlgorithm == "sha256" || normalizedAlgorithm == "sha-256" {
+		return SHA256Str(data)
+	}
+
+	// Default to keccak256 for 'keccak256', 'keccak-256', or any other value
+	return Keccak256Str(data)
+}
 
 // Verify verifies data against a Kayros proof
 func Verify(envelope *KayrosEnvelope) *VerifyResult {
@@ -31,7 +47,7 @@ func Verify(envelope *KayrosEnvelope) *VerifyResult {
 		dataString = string(jsonData)
 	}
 
-	computedHash := Keccak256Str(dataString)
+	computedHash := computeHash(dataString, envelope.Kayros.HashAlgorithm)
 	envelopeHash := envelope.Kayros.Hash
 
 	// Check if hashes match

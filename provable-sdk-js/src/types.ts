@@ -4,7 +4,7 @@
 
 export interface KayrosMetadata {
   hash?: string;
-  hashAlgorithm?: 'keccak256';
+  hashAlgorithm?: string;
   timestamp?: {
     service: string;
     response: unknown;

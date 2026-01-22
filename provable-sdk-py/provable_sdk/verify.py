@@ -6,9 +6,29 @@ import json
 import time
 from typing import Any, Dict
 
-from .hash import keccak256_str
+from .hash import keccak256_str, sha256_str
 from .api import get_record_by_hash
 from .types import KayrosEnvelope, VerifyResult
+
+
+def _compute_hash(data: str, algorithm: str = None) -> str:
+    """
+    Compute hash using the specified algorithm
+
+    Args:
+        data: Input string to hash
+        algorithm: Hash algorithm to use (defaults to keccak256)
+
+    Returns:
+        Hex string of the hash
+    """
+    normalized_algorithm = (algorithm or "keccak256").lower()
+
+    if normalized_algorithm in ("sha256", "sha-256"):
+        return sha256_str(data)
+
+    # Default to keccak256 for 'keccak256', 'keccak-256', or any other value
+    return keccak256_str(data)
 
 
 def verify(envelope: KayrosEnvelope) -> VerifyResult:
@@ -44,7 +64,7 @@ def verify(envelope: KayrosEnvelope) -> VerifyResult:
         else:
             data_string = json.dumps(data, separators=(',', ':'))
 
-        computed_hash = keccak256_str(data_string)
+        computed_hash = _compute_hash(data_string, kayros.get("hashAlgorithm"))
         envelope_hash = kayros["hash"]
 
         # Check if hashes match

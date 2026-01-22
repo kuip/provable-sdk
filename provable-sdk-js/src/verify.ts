@@ -2,9 +2,26 @@
  * Verification utilities
  */
 
-import { keccak256_str } from './hash';
+import { keccak256_str, sha256_str } from './hash';
 import { get_record_by_hash } from './api';
 import type { KayrosEnvelope, VerifyResult } from './types';
+
+/**
+ * Compute hash using the specified algorithm
+ * @param data - Input string to hash
+ * @param algorithm - Hash algorithm to use (defaults to keccak256)
+ * @returns Hex string of the hash
+ */
+async function computeHash(data: string, algorithm?: string): Promise<string> {
+  const normalizedAlgorithm = (algorithm || 'keccak256').toLowerCase();
+
+  if (normalizedAlgorithm === 'sha256' || normalizedAlgorithm === 'sha-256') {
+    return sha256_str(data);
+  }
+
+  // Default to keccak256 for 'keccak256', 'keccak-256', or any other value
+  return keccak256_str(data);
+}
 
 /**
  * Verify data against a Kayros proof
@@ -32,7 +49,7 @@ export async function verify<T = unknown>(envelope: KayrosEnvelope<T>): Promise<
     const dataString = typeof envelope.data === 'string'
       ? envelope.data
       : JSON.stringify(envelope.data);
-    const computedHash = keccak256_str(dataString);
+    const computedHash = await computeHash(dataString, envelope.kayros.hashAlgorithm);
     const envelopeHash = envelope.kayros.hash;
 
     // Check if hashes match
