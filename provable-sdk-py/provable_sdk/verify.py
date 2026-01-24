@@ -2,33 +2,40 @@
 Verification utilities
 """
 
+import base64
 import json
 import time
 from typing import Any, Dict
 
-from .hash import keccak256_str, sha256_str
+from .hash import keccak256, keccak256_str, sha256, sha256_str
 from .api import get_record_by_hash
 from .types import KayrosEnvelope, VerifyResult
 
 
-def _compute_hash(data: str, algorithm: str = None) -> str:
+def _compute_hash_str(data: str, algorithm: str = None) -> str:
     """
-    Compute hash using the specified algorithm
-
-    Args:
-        data: Input string to hash
-        algorithm: Hash algorithm to use (defaults to keccak256)
-
-    Returns:
-        Hex string of the hash
+    Compute hash of a string using the specified algorithm
     """
-    normalized_algorithm = (algorithm or "keccak256").lower()
+    normalized_algorithm = (algorithm or "sha256").lower()
 
-    if normalized_algorithm in ("sha256", "sha-256"):
-        return sha256_str(data)
+    if normalized_algorithm in ("keccak256", "keccak-256"):
+        return keccak256_str(data)
 
-    # Default to keccak256 for 'keccak256', 'keccak-256', or any other value
-    return keccak256_str(data)
+    # Default to sha256 for 'sha256', 'sha-256', or any other value
+    return sha256_str(data)
+
+
+def _compute_hash_bytes(data: bytes, algorithm: str = None) -> str:
+    """
+    Compute hash of bytes using the specified algorithm
+    """
+    normalized_algorithm = (algorithm or "sha256").lower()
+
+    if normalized_algorithm in ("keccak256", "keccak-256"):
+        return keccak256(data)
+
+    # Default to sha256 for 'sha256', 'sha-256', or any other value
+    return sha256(data)
 
 
 def verify(envelope: KayrosEnvelope) -> VerifyResult:
@@ -36,91 +43,68 @@ def verify(envelope: KayrosEnvelope) -> VerifyResult:
     Verify data against a Kayros proof
 
     Args:
-        envelope: Dict containing data and kayros metadata
+        envelope: KayrosEnvelope containing data and kayros metadata
 
     Returns:
         Verification result with validity status and details
     """
     try:
-        # Validate envelope structure
-        if "kayros" not in envelope:
+        data_hash = envelope.get_data_hash()
+
+        if not data_hash:
             return {
                 "valid": False,
-                "error": "Missing field: envelope.kayros",
+                "error": "Missing hash in envelope",
             }
 
-        kayros = envelope["kayros"]
-
-        if "hash" not in kayros:
-            return {
-                "valid": False,
-                "error": "Missing field: envelope.kayros.hash",
-            }
-
-        # Compute hash of the data (stringify as JSON for dict data)
-        data = envelope["data"]
-        if isinstance(data, str):
-            data_string = data
+        if envelope.is_v0():
+            # V0 format (legacy, used only for email proofs): data is base64 encoded, hash the decoded bytes
+            if not isinstance(envelope.data, str):
+                return {
+                    "valid": False,
+                    "error": "V0 envelope data must be a base64 string",
+                }
+            try:
+                decoded_bytes = base64.b64decode(envelope.data)
+            except Exception as e:
+                return {
+                    "valid": False,
+                    "error": f"Failed to decode base64 data: {str(e)}",
+                }
+            computed_hash = _compute_hash_bytes(decoded_bytes, envelope.get_hash_algorithm())
         else:
-            data_string = json.dumps(data, separators=(',', ':'))
-
-        computed_hash = _compute_hash(data_string, kayros.get("hashAlgorithm"))
-        envelope_hash = kayros["hash"]
+            # V1 format: hash the string directly or JSON.stringify for objects
+            if isinstance(envelope.data, str):
+                data_string = envelope.data
+            else:
+                data_string = json.dumps(envelope.data, separators=(',', ':'))
+            computed_hash = _compute_hash_str(data_string, envelope.get_hash_algorithm())
 
         # Check if hashes match
-        hash_match = computed_hash == envelope_hash
+        hash_match = computed_hash == data_hash
 
         if not hash_match:
             return {
                 "valid": False,
-                "error": "Hash mismatch: computed hash does not match envelope hash",
+                "error": "Hash mismatch: computed hash does not match data hash",
                 "details": {
                     "hashMatch": False,
                     "computedHash": computed_hash,
-                    "envelopeHash": envelope_hash,
+                    "dataHash": data_hash,
                 },
             }
 
-        # If there's a timestamp, verify against remote record
-        if "timestamp" in kayros and kayros["timestamp"]:
-            timestamp = kayros["timestamp"]
-
-            if "response" not in timestamp:
-                return {
-                    "valid": False,
-                    "error": "Invalid timestamp response structure",
-                    "details": {
-                        "hashMatch": True,
-                        "computedHash": computed_hash,
-                        "envelopeHash": envelope_hash,
-                    },
-                }
-
-            timestamp_response = timestamp["response"]
-
-            if (not isinstance(timestamp_response, dict) or
-                "data" not in timestamp_response or
-                "computed_hash_hex" not in timestamp_response["data"]):
-                return {
-                    "valid": False,
-                    "error": "Invalid timestamp response structure",
-                    "details": {
-                        "hashMatch": True,
-                        "computedHash": computed_hash,
-                        "envelopeHash": envelope_hash,
-                    },
-                }
-
-            remote_hash = timestamp_response["data"]["computed_hash_hex"]
-
+        # If there's a Kayros hash, verify against remote record
+        kayros_hash = envelope.get_kayros_hash()
+        if kayros_hash:
             try:
                 # Fetch remote record with retry logic
                 try:
-                    remote_record = get_record_by_hash(remote_hash)
+                    remote_record = get_record_by_hash(kayros_hash)
                 except Exception:
                     # Retry once after 2 seconds
                     time.sleep(2)
-                    remote_record = get_record_by_hash(remote_hash)
+                    remote_record = get_record_by_hash(kayros_hash)
 
                 if (not isinstance(remote_record, dict) or
                     "data" not in remote_record or
@@ -131,7 +115,7 @@ def verify(envelope: KayrosEnvelope) -> VerifyResult:
                         "details": {
                             "hashMatch": True,
                             "computedHash": computed_hash,
-                            "envelopeHash": envelope_hash,
+                            "dataHash": data_hash,
                         },
                     }
 
@@ -146,7 +130,7 @@ def verify(envelope: KayrosEnvelope) -> VerifyResult:
                             "hashMatch": True,
                             "remoteMatch": False,
                             "computedHash": computed_hash,
-                            "envelopeHash": envelope_hash,
+                            "dataHash": data_hash,
                             "remoteHash": remote_data_item_hex,
                         },
                     }
@@ -157,7 +141,7 @@ def verify(envelope: KayrosEnvelope) -> VerifyResult:
                         "hashMatch": True,
                         "remoteMatch": True,
                         "computedHash": computed_hash,
-                        "envelopeHash": envelope_hash,
+                        "dataHash": data_hash,
                         "remoteHash": remote_data_item_hex,
                     },
                 }
@@ -168,17 +152,17 @@ def verify(envelope: KayrosEnvelope) -> VerifyResult:
                     "details": {
                         "hashMatch": True,
                         "computedHash": computed_hash,
-                        "envelopeHash": envelope_hash,
+                        "dataHash": data_hash,
                     },
                 }
 
-        # No timestamp, just verify local hash match
+        # No remote verification needed, just verify local hash match
         return {
             "valid": True,
             "details": {
                 "hashMatch": True,
                 "computedHash": computed_hash,
-                "envelopeHash": envelope_hash,
+                "dataHash": data_hash,
             },
         }
     except Exception as e:

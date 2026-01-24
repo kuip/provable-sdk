@@ -7,13 +7,110 @@ export interface KayrosMetadata {
   hashAlgorithm?: string;
   timestamp?: {
     service: string;
-    response: unknown;
+    response: APIResponse<SingleHashResponse>;
   };
 }
 
-export interface KayrosEnvelope<T = unknown> {
-  data: T;
-  kayros: KayrosMetadata;
+export interface KayrosMetadataV0 extends APIResponse<SingleHashResponse> {
+  hash?: string;
+  hashAlgorithm?: string;
+}
+
+export type AnyKayrosMetadata = KayrosMetadata | KayrosMetadataV0;
+
+/**
+ * Kayros envelope with data and proof metadata
+ */
+export class KayrosEnvelope<T = unknown> {
+  constructor(
+    public readonly data: T,
+    public readonly kayros: AnyKayrosMetadata
+  ) {}
+
+  /**
+   * Get the data hash (data_item_hex) from the metadata
+   */
+  getDataHash(): string | undefined {
+    const m = this.kayros;
+    // V1 format: hash is directly on metadata
+    if ('hash' in m && m.hash) {
+      return m.hash;
+    }
+    // V0 format: hash is in data.data_item_hex
+    if ('data' in m && m.data?.data_item_hex) {
+      return m.data.data_item_hex;
+    }
+    // V1 with timestamp response
+    if ('timestamp' in m && m.timestamp?.response?.data?.data_item_hex) {
+      return m.timestamp.response.data.data_item_hex;
+    }
+    return undefined;
+  }
+
+  /**
+   * Get the data type (data_type_hex) from the metadata
+   */
+  getDataType(): string | undefined {
+    const m = this.kayros;
+    // V0 format
+    if ('data' in m && m.data?.data_type_hex) {
+      return m.data.data_type_hex;
+    }
+    // V1 with timestamp response
+    if ('timestamp' in m && m.timestamp?.response?.data?.data_type_hex) {
+      return m.timestamp.response.data.data_type_hex;
+    }
+    return undefined;
+  }
+
+  /**
+   * Get the Kayros hash (computed_hash_hex) from the metadata
+   */
+  getKayrosHash(): string | undefined {
+    const m = this.kayros;
+    // V0 format
+    if ('data' in m && m.data?.computed_hash_hex) {
+      return m.data.computed_hash_hex;
+    }
+    // V1 with timestamp response
+    if ('timestamp' in m && m.timestamp?.response?.data?.computed_hash_hex) {
+      return m.timestamp.response.data.computed_hash_hex;
+    }
+    return undefined;
+  }
+
+  /**
+   * Get the time UUID (timeuuid_hex) from the metadata
+   */
+  getTimeUUID(): string | undefined {
+    const m = this.kayros;
+    // V0 format
+    if ('data' in m && m.data?.timeuuid_hex) {
+      return m.data.timeuuid_hex;
+    }
+    // V1 with timestamp response
+    if ('timestamp' in m && m.timestamp?.response?.data?.timeuuid_hex) {
+      return m.timestamp.response.data.timeuuid_hex;
+    }
+    return undefined;
+  }
+
+  /**
+   * Get the hash algorithm (normalized to lowercase, defaults to sha256)
+   */
+  getHashAlgorithm(): string {
+    const algorithm = this.kayros.hashAlgorithm || 'sha256';
+    return algorithm.toLowerCase();
+  }
+
+  /**
+   * Check if this is the V0 format (legacy, used only for email proofs).
+   * V0 envelopes have base64-encoded data that must be decoded before hashing.
+   */
+  isV0(): boolean {
+    const m = this.kayros;
+    return 'success' in m && !('hash' in m && m.hash);
+  }
 }
 
 export interface ProveSingleHashResponse {
@@ -38,7 +135,7 @@ export interface VerifyResult {
     hashMatch?: boolean;
     remoteMatch?: boolean;
     computedHash?: string;
-    envelopeHash?: string;
+    dataHash?: string;
     remoteHash?: string;
   };
 }

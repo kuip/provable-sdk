@@ -1,130 +1,118 @@
 package provable
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 )
 
-// computeHash computes a hash using the specified algorithm
-func computeHash(data string, algorithm string) string {
+// computeHashStr computes a hash of a string using the specified algorithm
+func computeHashStr(data string, algorithm string) string {
 	normalizedAlgorithm := strings.ToLower(algorithm)
 	if normalizedAlgorithm == "" {
-		normalizedAlgorithm = "keccak256"
+		normalizedAlgorithm = "sha256"
 	}
 
-	if normalizedAlgorithm == "sha256" || normalizedAlgorithm == "sha-256" {
-		return SHA256Str(data)
+	if normalizedAlgorithm == "keccak256" || normalizedAlgorithm == "keccak-256" {
+		return Keccak256Str(data)
 	}
 
-	// Default to keccak256 for 'keccak256', 'keccak-256', or any other value
-	return Keccak256Str(data)
+	// Default to sha256 for 'sha256', 'sha-256', or any other value
+	return SHA256Str(data)
+}
+
+// computeHashBytes computes a hash of bytes using the specified algorithm
+func computeHashBytes(data []byte, algorithm string) string {
+	normalizedAlgorithm := strings.ToLower(algorithm)
+	if normalizedAlgorithm == "" {
+		normalizedAlgorithm = "sha256"
+	}
+
+	if normalizedAlgorithm == "keccak256" || normalizedAlgorithm == "keccak-256" {
+		return Keccak256(data)
+	}
+
+	// Default to sha256 for 'sha256', 'sha-256', or any other value
+	return SHA256(data)
 }
 
 // Verify verifies data against a Kayros proof
 func Verify(envelope *KayrosEnvelope) *VerifyResult {
-	// Validate envelope structure
-	if envelope.Kayros.Hash == "" {
+	dataHash := envelope.GetDataHash()
+
+	if dataHash == "" {
 		return &VerifyResult{
 			Valid: false,
-			Error: "Missing field: envelope.kayros.hash",
+			Error: "Missing hash in envelope",
 		}
 	}
 
-	// Compute hash of the data (stringify as JSON for struct/map data)
-	var dataString string
-	if str, ok := envelope.Data.(string); ok {
-		dataString = str
-	} else {
-		jsonData, err := json.Marshal(envelope.Data)
+	var computedHash string
+
+	if envelope.IsV0() {
+		// V0 format (legacy, used only for email proofs): data is base64 encoded, hash the decoded bytes
+		dataStr, ok := envelope.Data.(string)
+		if !ok {
+			return &VerifyResult{
+				Valid: false,
+				Error: "V0 envelope data must be a base64 string",
+			}
+		}
+		decodedBytes, err := base64.StdEncoding.DecodeString(dataStr)
 		if err != nil {
 			return &VerifyResult{
 				Valid: false,
-				Error: fmt.Sprintf("Failed to marshal data: %v", err),
+				Error: fmt.Sprintf("Failed to decode base64 data: %v", err),
 			}
 		}
-		dataString = string(jsonData)
+		computedHash = computeHashBytes(decodedBytes, envelope.GetHashAlgorithm())
+	} else {
+		// V1 format: hash the string directly or JSON.stringify for objects
+		var dataString string
+		if str, ok := envelope.Data.(string); ok {
+			dataString = str
+		} else {
+			jsonData, err := json.Marshal(envelope.Data)
+			if err != nil {
+				return &VerifyResult{
+					Valid: false,
+					Error: fmt.Sprintf("Failed to marshal data: %v", err),
+				}
+			}
+			dataString = string(jsonData)
+		}
+		computedHash = computeHashStr(dataString, envelope.GetHashAlgorithm())
 	}
 
-	computedHash := computeHash(dataString, envelope.Kayros.HashAlgorithm)
-	envelopeHash := envelope.Kayros.Hash
-
 	// Check if hashes match
-	hashMatch := computedHash == envelopeHash
+	hashMatch := computedHash == dataHash
 
 	if !hashMatch {
 		return &VerifyResult{
 			Valid: false,
-			Error: "Hash mismatch: computed hash does not match envelope hash",
+			Error: "Hash mismatch: computed hash does not match data hash",
 			Details: &VerifyResultDetails{
 				HashMatch:    false,
 				ComputedHash: computedHash,
-				EnvelopeHash: envelopeHash,
+				DataHash: dataHash,
 			},
 		}
 	}
 
-	// If there's a timestamp, verify against remote record
-	if envelope.Kayros.Timestamp != nil {
-		var remoteHash string
-
-		// Try to use typed response first
-		if typedResponse, ok := envelope.Kayros.Timestamp.Response.(*ProveSingleHashResponse); ok {
-			remoteHash = typedResponse.Data.ComputedHashHex
-		} else if typedResponse, ok := envelope.Kayros.Timestamp.Response.(ProveSingleHashResponse); ok {
-			remoteHash = typedResponse.Data.ComputedHashHex
-		} else {
-			// Fallback to map[string]interface{} for backward compatibility
-			timestampResponse, ok := envelope.Kayros.Timestamp.Response.(map[string]interface{})
-			if !ok {
-				return &VerifyResult{
-					Valid: false,
-					Error: "Invalid timestamp response structure",
-					Details: &VerifyResultDetails{
-						HashMatch:    true,
-						ComputedHash: computedHash,
-						EnvelopeHash: envelopeHash,
-					},
-				}
-			}
-
-			data, ok := timestampResponse["data"].(map[string]interface{})
-			if !ok {
-				return &VerifyResult{
-					Valid: false,
-					Error: "Invalid timestamp response structure: missing data",
-					Details: &VerifyResultDetails{
-						HashMatch:    true,
-						ComputedHash: computedHash,
-						EnvelopeHash: envelopeHash,
-					},
-				}
-			}
-
-			remoteHash, ok = data["computed_hash_hex"].(string)
-			if !ok {
-				return &VerifyResult{
-					Valid: false,
-					Error: "Invalid timestamp response structure: missing computed_hash_hex",
-					Details: &VerifyResultDetails{
-						HashMatch:    true,
-						ComputedHash: computedHash,
-						EnvelopeHash: envelopeHash,
-					},
-				}
-			}
-		}
-
+	// If there's a Kayros hash, verify against remote record
+	kayrosHash := envelope.GetKayrosHash()
+	if kayrosHash != "" {
 		// Fetch remote record with retry logic
 		var remoteRecord *GetRecordResponse
 		var err error
 
-		remoteRecord, err = GetRecordByHash(remoteHash)
+		remoteRecord, err = GetRecordByHash(kayrosHash)
 		if err != nil {
 			// Retry once after 2 seconds
 			time.Sleep(2 * time.Second)
-			remoteRecord, err = GetRecordByHash(remoteHash)
+			remoteRecord, err = GetRecordByHash(kayrosHash)
 			if err != nil {
 				return &VerifyResult{
 					Valid: false,
@@ -132,7 +120,7 @@ func Verify(envelope *KayrosEnvelope) *VerifyResult {
 					Details: &VerifyResultDetails{
 						HashMatch:    true,
 						ComputedHash: computedHash,
-						EnvelopeHash: envelopeHash,
+						DataHash: dataHash,
 					},
 				}
 			}
@@ -149,7 +137,7 @@ func Verify(envelope *KayrosEnvelope) *VerifyResult {
 					HashMatch:    true,
 					RemoteMatch:  false,
 					ComputedHash: computedHash,
-					EnvelopeHash: envelopeHash,
+					DataHash: dataHash,
 					RemoteHash:   remoteDataItemHex,
 				},
 			}
@@ -161,19 +149,19 @@ func Verify(envelope *KayrosEnvelope) *VerifyResult {
 				HashMatch:    true,
 				RemoteMatch:  true,
 				ComputedHash: computedHash,
-				EnvelopeHash: envelopeHash,
+				DataHash: dataHash,
 				RemoteHash:   remoteDataItemHex,
 			},
 		}
 	}
 
-	// No timestamp, just verify local hash match
+	// No remote verification needed, just verify local hash match
 	return &VerifyResult{
 		Valid: true,
 		Details: &VerifyResultDetails{
 			HashMatch:    true,
 			ComputedHash: computedHash,
-			EnvelopeHash: envelopeHash,
+			DataHash: dataHash,
 		},
 	}
 }

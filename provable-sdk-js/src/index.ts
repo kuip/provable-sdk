@@ -31,10 +31,14 @@ export {
   verify_merkle_proof,
 } from './lightnet';
 
+// Export KayrosEnvelope class
+export { KayrosEnvelope } from './types';
+
 // Export types
 export type {
   KayrosMetadata,
-  KayrosEnvelope,
+  KayrosMetadataV0,
+  AnyKayrosMetadata,
   ProveSingleHashResponse,
   GetRecordResponse,
   VerifyResult,

@@ -23,6 +23,7 @@ from .lightnet import (
 )
 from .types import (
     KayrosMetadata,
+    KayrosMetadataV0,
     KayrosEnvelope,
     ProveSingleHashResponse,
     GetRecordResponse,
@@ -81,6 +82,7 @@ __all__ = [
     "verify_merkle_proof",
     # Types
     "KayrosMetadata",
+    "KayrosMetadataV0",
     "KayrosEnvelope",
     "ProveSingleHashResponse",
     "GetRecordResponse",

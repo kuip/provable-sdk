@@ -77,8 +77,8 @@ func TestFullCycleIntegration(t *testing.T) {
 	if verifyResult.Details.ComputedHash != dataHash {
 		t.Errorf("computedHash = %v, want %v", verifyResult.Details.ComputedHash, dataHash)
 	}
-	if verifyResult.Details.EnvelopeHash != dataHash {
-		t.Errorf("envelopeHash = %v, want %v", verifyResult.Details.EnvelopeHash, dataHash)
+	if verifyResult.Details.DataHash != dataHash {
+		t.Errorf("dataHash = %v, want %v", verifyResult.Details.DataHash, dataHash)
 	}
 
 	// Verify remote record exists and matches

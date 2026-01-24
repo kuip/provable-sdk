@@ -10,15 +10,98 @@ class KayrosTimestamp(TypedDict, total=False):
     response: Any
 
 
+class KayrosMetadataV0Data(TypedDict, total=False):
+    """Data field in V0 format (from APIResponse)"""
+    data_item_hex: str
+    computed_hash_hex: str
+    data_type: str
+    data_type_hex: str
+    message: str
+    success: bool
+    timeuuid_hex: str
+
+
 class KayrosMetadata(TypedDict, total=False):
+    """V1 format metadata"""
     hash: str
     hashAlgorithm: str
     timestamp: KayrosTimestamp
 
 
-class KayrosEnvelope(TypedDict):
-    data: Any
-    kayros: KayrosMetadata
+class KayrosMetadataV0(TypedDict, total=False):
+    """V0 format metadata (APIResponse-based)"""
+    success: bool
+    message: str
+    data: KayrosMetadataV0Data
+    error: str
+    hash: str
+    hashAlgorithm: str
+
+
+class KayrosEnvelope:
+    """Kayros envelope with data and proof metadata"""
+
+    def __init__(self, data: Any, kayros: Dict[str, Any]):
+        self.data = data
+        self.kayros = kayros
+
+    def _get_metadata_data(self) -> Optional[Dict[str, Any]]:
+        """Get the data dict from metadata (V0 or V1 timestamp response)"""
+        if "data" in self.kayros and isinstance(self.kayros["data"], dict):
+            return self.kayros["data"]
+        if "timestamp" in self.kayros and isinstance(self.kayros["timestamp"], dict):
+            response = self.kayros["timestamp"].get("response", {})
+            if isinstance(response, dict) and "data" in response:
+                return response["data"]
+        return None
+
+    def get_data_hash(self) -> Optional[str]:
+        """Get the data hash (data_item_hex) from the metadata"""
+        # V1 format: hash is directly on metadata
+        if "hash" in self.kayros and self.kayros["hash"]:
+            return self.kayros["hash"]
+        # V0 format or V1 with timestamp response
+        data = self._get_metadata_data()
+        if data and "data_item_hex" in data and data["data_item_hex"]:
+            return data["data_item_hex"]
+        return None
+
+    def get_data_type(self) -> Optional[str]:
+        """Get the data type (data_type_hex) from the metadata"""
+        data = self._get_metadata_data()
+        if data and "data_type_hex" in data:
+            return data["data_type_hex"]
+        return None
+
+    def get_kayros_hash(self) -> Optional[str]:
+        """Get the Kayros hash (computed_hash_hex) from the metadata"""
+        data = self._get_metadata_data()
+        if data and "computed_hash_hex" in data:
+            return data["computed_hash_hex"]
+        return None
+
+    def get_time_uuid(self) -> Optional[str]:
+        """Get the time UUID (timeuuid_hex) from the metadata"""
+        data = self._get_metadata_data()
+        if data and "timeuuid_hex" in data:
+            return data["timeuuid_hex"]
+        return None
+
+    def get_hash_algorithm(self) -> str:
+        """Get the hash algorithm (normalized to lowercase, defaults to sha256)"""
+        algorithm = self.kayros.get("hashAlgorithm", "sha256")
+        return (algorithm or "sha256").lower()
+
+    def is_v0(self) -> bool:
+        """Check if this is the V0 format (legacy, used only for email proofs).
+        V0 envelopes have base64-encoded data that must be decoded before hashing."""
+        return (
+            "hash" not in self.kayros or not self.kayros.get("hash")
+        ) and (
+            "data" in self.kayros
+            and isinstance(self.kayros["data"], dict)
+            and "data_item_hex" in self.kayros["data"]
+        )
 
 
 class ProveSingleHashResponseData(TypedDict):
@@ -42,7 +125,7 @@ class VerifyResultDetails(TypedDict, total=False):
     hashMatch: bool
     remoteMatch: bool
     computedHash: str
-    envelopeHash: str
+    dataHash: str
     remoteHash: str
 
 

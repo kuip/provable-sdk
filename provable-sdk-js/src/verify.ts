@@ -2,25 +2,37 @@
  * Verification utilities
  */
 
-import { keccak256_str, sha256_str } from './hash';
+import { keccak256, keccak256_str, sha256, sha256_str } from './hash';
 import { get_record_by_hash } from './api';
-import type { KayrosEnvelope, VerifyResult } from './types';
+import type { VerifyResult } from './types';
+import { KayrosEnvelope } from './types';
 
 /**
- * Compute hash using the specified algorithm
- * @param data - Input string to hash
- * @param algorithm - Hash algorithm to use (defaults to keccak256)
- * @returns Hex string of the hash
+ * Compute hash of a string using the specified algorithm
  */
-async function computeHash(data: string, algorithm?: string): Promise<string> {
-  const normalizedAlgorithm = (algorithm || 'keccak256').toLowerCase();
+async function computeHashStr(data: string, algorithm?: string): Promise<string> {
+  const normalizedAlgorithm = (algorithm || 'sha256').toLowerCase();
 
-  if (normalizedAlgorithm === 'sha256' || normalizedAlgorithm === 'sha-256') {
-    return sha256_str(data);
+  if (normalizedAlgorithm === 'keccak256' || normalizedAlgorithm === 'keccak-256') {
+    return keccak256_str(data);
   }
 
-  // Default to keccak256 for 'keccak256', 'keccak-256', or any other value
-  return keccak256_str(data);
+  // Default to sha256 for 'sha256', 'sha-256', or any other value
+  return sha256_str(data);
+}
+
+/**
+ * Compute hash of bytes using the specified algorithm
+ */
+async function computeHashBytes(data: Uint8Array, algorithm?: string): Promise<string> {
+  const normalizedAlgorithm = (algorithm || 'sha256').toLowerCase();
+
+  if (normalizedAlgorithm === 'keccak256' || normalizedAlgorithm === 'keccak-256') {
+    return keccak256(data);
+  }
+
+  // Default to sha256 for 'sha256', 'sha-256', or any other value
+  return sha256(data);
 }
 
 /**
@@ -30,70 +42,67 @@ async function computeHash(data: string, algorithm?: string): Promise<string> {
  */
 export async function verify<T = unknown>(envelope: KayrosEnvelope<T>): Promise<VerifyResult> {
   try {
-    // Validate envelope structure
-    if (!envelope.kayros) {
+    const dataHash = envelope.getDataHash();
+
+    if (!dataHash) {
       return {
         valid: false,
-        error: 'Missing field: envelope.kayros',
+        error: 'Missing hash in envelope',
       };
     }
 
-    if (!envelope.kayros.hash) {
-      return {
-        valid: false,
-        error: 'Missing field: envelope.kayros.hash',
-      };
-    }
+    let computedHash: string;
 
-    // Compute hash of the data (stringify as JSON for object data)
-    const dataString = typeof envelope.data === 'string'
-      ? envelope.data
-      : JSON.stringify(envelope.data);
-    const computedHash = await computeHash(dataString, envelope.kayros.hashAlgorithm);
-    const envelopeHash = envelope.kayros.hash;
+    if (envelope.isV0()) {
+      // V0 format (legacy, used only for email proofs): data is base64 encoded, hash the decoded bytes
+      if (typeof envelope.data !== 'string') {
+        return {
+          valid: false,
+          error: 'V0 envelope data must be a base64 string',
+        };
+      }
+      const binaryString = atob(envelope.data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      computedHash = await computeHashBytes(bytes, envelope.getHashAlgorithm());
+    } else {
+      // V1 format: hash the string directly or JSON.stringify for objects
+      const dataString = typeof envelope.data === 'string'
+        ? envelope.data
+        : JSON.stringify(envelope.data);
+      computedHash = await computeHashStr(dataString, envelope.getHashAlgorithm());
+    }
 
     // Check if hashes match
-    const hashMatch = computedHash === envelopeHash;
+    const hashMatch = computedHash === dataHash;
 
     if (!hashMatch) {
       return {
         valid: false,
-        error: 'Hash mismatch: computed hash does not match envelope hash',
+        error: 'Hash mismatch: computed hash does not match data hash',
         details: {
           hashMatch: false,
           computedHash,
-          envelopeHash,
+          dataHash,
         },
       };
     }
 
-    // If there's a timestamp, verify against remote record
-    if (envelope.kayros.timestamp && envelope.kayros.timestamp.response) {
-      const timestampResponse = envelope.kayros.timestamp.response as any;
-
-      if (!timestampResponse.data || !timestampResponse.data.computed_hash_hex) {
-        return {
-          valid: false,
-          error: 'Invalid timestamp response structure',
-          details: {
-            hashMatch: true,
-            computedHash,
-            envelopeHash,
-          },
-        };
-      }
-
-      const remoteHash = timestampResponse.data.computed_hash_hex;
+    // If there's a Kayros hash, verify against remote record
+    const kayrosHash = envelope.getKayrosHash();
+    if (kayrosHash) {
 
       try {
         // Fetch remote record with retry logic
         let remoteRecord;
         try {
-          remoteRecord = await get_record_by_hash(remoteHash);
+          remoteRecord = await get_record_by_hash(kayrosHash);
         } catch (firstError) {
           // Retry once after 2 seconds
           await new Promise(resolve => setTimeout(resolve, 2000));
-          remoteRecord = await get_record_by_hash(remoteHash);
+          remoteRecord = await get_record_by_hash(kayrosHash);
         }
 
         if (!remoteRecord.data || !remoteRecord.data.data_item_hex) {
@@ -103,7 +112,7 @@ export async function verify<T = unknown>(envelope: KayrosEnvelope<T>): Promise<
             details: {
               hashMatch: true,
               computedHash,
-              envelopeHash,
+              dataHash,
             },
           };
         }
@@ -119,7 +128,7 @@ export async function verify<T = unknown>(envelope: KayrosEnvelope<T>): Promise<
               hashMatch: true,
               remoteMatch: false,
               computedHash,
-              envelopeHash,
+              dataHash,
               remoteHash: remoteDataItemHex,
             },
           };
@@ -131,7 +140,7 @@ export async function verify<T = unknown>(envelope: KayrosEnvelope<T>): Promise<
             hashMatch: true,
             remoteMatch: true,
             computedHash,
-            envelopeHash,
+            dataHash,
             remoteHash: remoteDataItemHex,
           },
         };
@@ -142,7 +151,7 @@ export async function verify<T = unknown>(envelope: KayrosEnvelope<T>): Promise<
           details: {
             hashMatch: true,
             computedHash,
-            envelopeHash,
+            dataHash,
           },
         };
       }
@@ -154,7 +163,7 @@ export async function verify<T = unknown>(envelope: KayrosEnvelope<T>): Promise<
       details: {
         hashMatch: true,
         computedHash,
-        envelopeHash,
+        dataHash,
       },
     };
   } catch (error) {
