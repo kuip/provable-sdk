@@ -8,6 +8,7 @@ import pytest
 from provable_sdk.hash import keccak256_str
 from provable_sdk.api import prove_single_hash, get_record_by_hash
 from provable_sdk.verify import verify
+from provable_sdk.types import KayrosEnvelope
 
 
 class TestFullCycleIntegration:
@@ -33,9 +34,9 @@ class TestFullCycleIntegration:
         computed_hash = kayros_response["data"]["computed_hash_hex"]
 
         # Step 4: Build proof object (envelope)
-        envelope = {
-            "data": test_data,
-            "kayros": {
+        envelope = KayrosEnvelope(
+            data=test_data,
+            kayros={
                 "hash": data_hash,
                 "hashAlgorithm": "keccak256",
                 "timestamp": {
@@ -43,7 +44,7 @@ class TestFullCycleIntegration:
                     "response": kayros_response,
                 },
             },
-        }
+        )
 
         # Step 5: Verify the proof
         verify_result = verify(envelope)
@@ -55,7 +56,7 @@ class TestFullCycleIntegration:
         # Verify hash matches
         assert verify_result["details"]["hashMatch"] is True
         assert verify_result["details"]["computedHash"] == data_hash
-        assert verify_result["details"]["envelopeHash"] == data_hash
+        assert verify_result["details"]["dataHash"] == data_hash
 
         # Verify remote record exists and matches
         assert verify_result["details"]["remoteMatch"] is True
