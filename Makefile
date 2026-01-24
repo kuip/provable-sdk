@@ -1,5 +1,5 @@
-.PHONY: help test test-js test-py test-go coverage coverage-js coverage-py coverage-go install install-js install-py install-go clean \
-	build build-js build-py build-go publish publish-js publish-py publish-go publish-all \
+.PHONY: help test test-js test-py test-go coverage coverage-js coverage-py coverage-go install install-js install-py install-go install-ui clean \
+	build build-js build-py build-go build-ui publish publish-js publish-ui publish-py publish-go publish-all \
 	publish-dry-run publish-dry-run-js publish-dry-run-py tag-go version-js version-py version-go
 
 # Default target
@@ -19,16 +19,19 @@ help:
 	@echo ""
 	@echo "  make install       - Install dependencies for all SDKs"
 	@echo "  make install-js    - Install TypeScript dependencies"
+	@echo "  make install-ui    - Install UI package dependencies"
 	@echo "  make install-py    - Install Python dependencies"
 	@echo "  make install-go    - Install Go dependencies"
 	@echo ""
 	@echo "  make build         - Build all SDK packages"
 	@echo "  make build-js      - Build TypeScript package"
+	@echo "  make build-ui      - Build UI package"
 	@echo "  make build-py      - Build Python package"
 	@echo "  make build-go      - Build/verify Go package"
 	@echo ""
 	@echo "  make publish       - Publish all SDK packages (use with caution!)"
 	@echo "  make publish-js    - Publish TypeScript package to npm"
+	@echo "  make publish-ui    - Publish UI package to npm"
 	@echo "  make publish-py    - Publish Python package to PyPI"
 	@echo "  make publish-go    - Tag and push Go module (requires VERSION=vX.Y.Z)"
 	@echo ""
@@ -82,7 +85,7 @@ coverage-go:
 	@echo "Go coverage report: provable-sdk-go/coverage.html"
 
 # Install all dependencies
-install: install-js install-py install-go
+install: install-js install-ui install-py install-go
 	@echo ""
 	@echo "✓ All dependencies installed!"
 
@@ -90,6 +93,11 @@ install: install-js install-py install-go
 install-js:
 	@echo "Installing TypeScript SDK dependencies..."
 	@cd provable-sdk-js && npm install
+
+# Install UI dependencies
+install-ui:
+	@echo "Installing UI package dependencies..."
+	@cd provable-sdk-ui && npm install
 
 # Install Python dependencies
 install-py:
@@ -107,6 +115,7 @@ install-go:
 clean:
 	@echo "Cleaning build artifacts..."
 	@cd provable-sdk-js && rm -rf node_modules dist coverage .vitest 2>/dev/null || true
+	@cd provable-sdk-ui && rm -rf node_modules dist 2>/dev/null || true
 	@cd provable-sdk-py && rm -rf .pytest_cache htmlcov .coverage __pycache__ build dist *.egg-info 2>/dev/null || true
 	@cd provable-sdk-py && find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	@cd provable-sdk-go && rm -f coverage.out coverage.html 2>/dev/null || true
@@ -147,7 +156,7 @@ ci: test coverage
 	@echo "✓ CI tests complete!"
 
 # Build targets
-build: build-js build-py build-go
+build: build-js build-ui build-py build-go
 	@echo ""
 	@echo "✓ All packages built successfully!"
 
@@ -155,6 +164,11 @@ build-js:
 	@echo "Building TypeScript SDK..."
 	@cd provable-sdk-js && npm run build
 	@echo "✓ TypeScript build complete!"
+
+build-ui:
+	@echo "Building UI package..."
+	@cd provable-sdk-ui && npm run build && npm run build:browser
+	@echo "✓ UI build complete!"
 
 build-py:
 	@echo "Building Python SDK..."
@@ -183,6 +197,17 @@ publish-js: test-js
 	git push origin main && \
 	git push origin "js-v$$VERSION"
 	@echo "✓ TypeScript SDK published and tagged!"
+
+publish-ui:
+	@echo "Publishing UI package to npm..."
+	@VERSION=$$(cd provable-sdk-ui && node -p "require('./package.json').version"); \
+	echo "Version: $$VERSION"; \
+	echo "⚠️  This will publish to npm"; \
+	echo ""; \
+	echo "Press Ctrl+C to cancel, or Enter to continue..."; \
+	read -r; \
+	cd provable-sdk-ui && npm publish
+	@echo "✓ UI package published!"
 
 publish-py: test-py build-py
 	@echo "Publishing Python SDK to PyPI..."
@@ -235,6 +260,7 @@ publish-all:
 	@echo "Press Ctrl+C to cancel, or Enter to continue..."
 	@read -r
 	@make publish-js
+	@make publish-ui
 	@make publish-py
 	@echo ""
 	@echo "✓ JavaScript and Python SDKs published!"
