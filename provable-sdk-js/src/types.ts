@@ -2,6 +2,8 @@
  * Provable SDK Types
  */
 
+import { keccak256, sha256 } from './hash';
+
 export interface KayrosMetadata {
   hash?: string;
   hashAlgorithm?: string;
@@ -61,6 +63,33 @@ export class KayrosEnvelope<T = unknown> {
       return m.timestamp.response.data.data_type_hex;
     }
     return undefined;
+  }
+
+  /**
+   * Get the data type label by decoding data_type_hex.
+   */
+  getDataTypeLabel(): string | undefined {
+    const dataTypeHex = this.getDataType();
+    if (!dataTypeHex) {
+      return undefined;
+    }
+
+    const normalized = dataTypeHex.startsWith('0x') ? dataTypeHex.slice(2) : dataTypeHex;
+    if (normalized.length === 0 || normalized.length % 2 !== 0) {
+      return undefined;
+    }
+
+    const bytes = new Uint8Array(normalized.length / 2);
+    for (let i = 0; i < normalized.length; i += 2) {
+      const byte = Number.parseInt(normalized.slice(i, i + 2), 16);
+      if (Number.isNaN(byte)) {
+        return undefined;
+      }
+      bytes[i / 2] = byte;
+    }
+
+    const decoded = new TextDecoder().decode(bytes);
+    return decoded.replace(/\0/g, '').trim() || undefined;
   }
 
   /**
@@ -136,6 +165,20 @@ export class KayrosEnvelope<T = unknown> {
         : JSON.stringify(this.data);
       return new TextEncoder().encode(dataString);
     }
+  }
+
+  /**
+   * Compute the data hash based on the envelope hash algorithm.
+   */
+  async computeDataHash(): Promise<string> {
+    const data = this.getData();
+    const algorithm = this.getHashAlgorithm();
+
+    if (algorithm === 'keccak256' || algorithm === 'keccak-256') {
+      return keccak256(data);
+    }
+
+    return sha256(data);
   }
 }
 

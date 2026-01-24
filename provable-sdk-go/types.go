@@ -2,6 +2,7 @@ package provable
 
 import (
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -64,6 +65,27 @@ func (e *KayrosEnvelope) GetDataType() string {
 	return ""
 }
 
+// GetDataTypeLabel returns the decoded data type label from data_type_hex.
+func (e *KayrosEnvelope) GetDataTypeLabel() string {
+	dataTypeHex := e.GetDataType()
+	if dataTypeHex == "" {
+		return ""
+	}
+
+	normalized := strings.TrimPrefix(dataTypeHex, "0x")
+	if len(normalized) == 0 || len(normalized)%2 != 0 {
+		return ""
+	}
+
+	decoded, err := hex.DecodeString(normalized)
+	if err != nil {
+		return ""
+	}
+
+	label := strings.TrimSpace(strings.ReplaceAll(string(decoded), "\x00", ""))
+	return label
+}
+
 // GetKayrosHash returns the Kayros hash (computed_hash_hex) from the metadata
 func (e *KayrosEnvelope) GetKayrosHash() string {
 	if e.Kayros.Data != nil && e.Kayros.Data.ComputedHashHex != "" {
@@ -113,6 +135,21 @@ func (e *KayrosEnvelope) GetData() ([]byte, error) {
 		return []byte(str), nil
 	}
 	return json.Marshal(e.Data)
+}
+
+// ComputeDataHash computes the data hash using the envelope hash algorithm.
+func (e *KayrosEnvelope) ComputeDataHash() (string, error) {
+	data, err := e.GetData()
+	if err != nil {
+		return "", err
+	}
+
+	algorithm := e.GetHashAlgorithm()
+	if algorithm == "keccak256" || algorithm == "keccak-256" {
+		return Keccak256(data), nil
+	}
+
+	return SHA256(data), nil
 }
 
 // ProveSingleHashResponseData contains the computed hash from Kayros

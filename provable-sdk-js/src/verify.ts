@@ -2,38 +2,9 @@
  * Verification utilities
  */
 
-import { keccak256, keccak256_str, sha256, sha256_str } from './hash';
 import { get_record_by_hash } from './api';
 import type { VerifyResult } from './types';
 import { KayrosEnvelope } from './types';
-
-/**
- * Compute hash of a string using the specified algorithm
- */
-async function computeHashStr(data: string, algorithm?: string): Promise<string> {
-  const normalizedAlgorithm = (algorithm || 'sha256').toLowerCase();
-
-  if (normalizedAlgorithm === 'keccak256' || normalizedAlgorithm === 'keccak-256') {
-    return keccak256_str(data);
-  }
-
-  // Default to sha256 for 'sha256', 'sha-256', or any other value
-  return sha256_str(data);
-}
-
-/**
- * Compute hash of bytes using the specified algorithm
- */
-async function computeHashBytes(data: Uint8Array, algorithm?: string): Promise<string> {
-  const normalizedAlgorithm = (algorithm || 'sha256').toLowerCase();
-
-  if (normalizedAlgorithm === 'keccak256' || normalizedAlgorithm === 'keccak-256') {
-    return keccak256(data);
-  }
-
-  // Default to sha256 for 'sha256', 'sha-256', or any other value
-  return sha256(data);
-}
 
 /**
  * Verify data against a Kayros proof
@@ -51,29 +22,7 @@ export async function verify<T = unknown>(envelope: KayrosEnvelope<T>): Promise<
       };
     }
 
-    let computedHash: string;
-
-    if (envelope.isV0()) {
-      // V0 format (legacy, used only for email proofs): data is base64 encoded, hash the decoded bytes
-      if (typeof envelope.data !== 'string') {
-        return {
-          valid: false,
-          error: 'V0 envelope data must be a base64 string',
-        };
-      }
-      const binaryString = atob(envelope.data);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      computedHash = await computeHashBytes(bytes, envelope.getHashAlgorithm());
-    } else {
-      // V1 format: hash the string directly or JSON.stringify for objects
-      const dataString = typeof envelope.data === 'string'
-        ? envelope.data
-        : JSON.stringify(envelope.data);
-      computedHash = await computeHashStr(dataString, envelope.getHashAlgorithm());
-    }
+    const computedHash = await envelope.computeDataHash();
 
     // Check if hashes match
     const hashMatch = computedHash === dataHash;

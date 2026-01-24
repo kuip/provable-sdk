@@ -6,6 +6,7 @@ import base64
 import json
 from typing import TypedDict, Optional, Any, Dict
 
+from .hash import keccak256, sha256
 
 class KayrosTimestamp(TypedDict, total=False):
     service: str
@@ -75,6 +76,24 @@ class KayrosEnvelope:
             return data["data_type_hex"]
         return None
 
+    def get_data_type_label(self) -> Optional[str]:
+        """Get the data type label by decoding data_type_hex."""
+        data_type_hex = self.get_data_type()
+        if not data_type_hex:
+            return None
+
+        normalized = data_type_hex[2:] if data_type_hex.startswith("0x") else data_type_hex
+        if len(normalized) == 0 or len(normalized) % 2 != 0:
+            return None
+
+        try:
+            decoded = bytes.fromhex(normalized).decode("utf-8", errors="ignore")
+        except ValueError:
+            return None
+
+        trimmed = decoded.replace("\x00", "").strip()
+        return trimmed or None
+
     def get_kayros_hash(self) -> Optional[str]:
         """Get the Kayros hash (computed_hash_hex) from the metadata"""
         data = self._get_metadata_data()
@@ -119,6 +138,16 @@ class KayrosEnvelope:
             if isinstance(self.data, str):
                 return self.data.encode('utf-8')
             return json.dumps(self.data, separators=(',', ':')).encode('utf-8')
+
+    def compute_data_hash(self) -> str:
+        """Compute the data hash using the envelope hash algorithm."""
+        data = self.get_data()
+        algorithm = self.get_hash_algorithm()
+
+        if algorithm in ("keccak256", "keccak-256"):
+            return keccak256(data)
+
+        return sha256(data)
 
 
 class ProveSingleHashResponseData(TypedDict):

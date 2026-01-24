@@ -1,42 +1,9 @@
 package provable
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 )
-
-// computeHashStr computes a hash of a string using the specified algorithm
-func computeHashStr(data string, algorithm string) string {
-	normalizedAlgorithm := strings.ToLower(algorithm)
-	if normalizedAlgorithm == "" {
-		normalizedAlgorithm = "sha256"
-	}
-
-	if normalizedAlgorithm == "keccak256" || normalizedAlgorithm == "keccak-256" {
-		return Keccak256Str(data)
-	}
-
-	// Default to sha256 for 'sha256', 'sha-256', or any other value
-	return SHA256Str(data)
-}
-
-// computeHashBytes computes a hash of bytes using the specified algorithm
-func computeHashBytes(data []byte, algorithm string) string {
-	normalizedAlgorithm := strings.ToLower(algorithm)
-	if normalizedAlgorithm == "" {
-		normalizedAlgorithm = "sha256"
-	}
-
-	if normalizedAlgorithm == "keccak256" || normalizedAlgorithm == "keccak-256" {
-		return Keccak256(data)
-	}
-
-	// Default to sha256 for 'sha256', 'sha-256', or any other value
-	return SHA256(data)
-}
 
 // Verify verifies data against a Kayros proof
 func Verify(envelope *KayrosEnvelope) *VerifyResult {
@@ -49,41 +16,12 @@ func Verify(envelope *KayrosEnvelope) *VerifyResult {
 		}
 	}
 
-	var computedHash string
-
-	if envelope.IsV0() {
-		// V0 format (legacy, used only for email proofs): data is base64 encoded, hash the decoded bytes
-		dataStr, ok := envelope.Data.(string)
-		if !ok {
-			return &VerifyResult{
-				Valid: false,
-				Error: "V0 envelope data must be a base64 string",
-			}
+	computedHash, err := envelope.ComputeDataHash()
+	if err != nil {
+		return &VerifyResult{
+			Valid: false,
+			Error: fmt.Sprintf("Failed to compute data hash: %v", err),
 		}
-		decodedBytes, err := base64.StdEncoding.DecodeString(dataStr)
-		if err != nil {
-			return &VerifyResult{
-				Valid: false,
-				Error: fmt.Sprintf("Failed to decode base64 data: %v", err),
-			}
-		}
-		computedHash = computeHashBytes(decodedBytes, envelope.GetHashAlgorithm())
-	} else {
-		// V1 format: hash the string directly or JSON.stringify for objects
-		var dataString string
-		if str, ok := envelope.Data.(string); ok {
-			dataString = str
-		} else {
-			jsonData, err := json.Marshal(envelope.Data)
-			if err != nil {
-				return &VerifyResult{
-					Valid: false,
-					Error: fmt.Sprintf("Failed to marshal data: %v", err),
-				}
-			}
-			dataString = string(jsonData)
-		}
-		computedHash = computeHashStr(dataString, envelope.GetHashAlgorithm())
 	}
 
 	// Check if hashes match
