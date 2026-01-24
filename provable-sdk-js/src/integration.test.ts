@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
 import { keccak256_str } from './hash';
 import { prove_single_hash, get_record_by_hash } from './api';
 import { verify } from './verify';
-import type { KayrosEnvelope } from './types';
+import { KayrosEnvelope } from './types';
 
 describe('Full cycle integration', () => {
   it('should complete full cycle: data -> hash -> index -> verify', async () => {
@@ -29,17 +29,31 @@ describe('Full cycle integration', () => {
     const computedHash = kayrosResponse.data.computed_hash_hex;
 
     // Step 4: Build proof object (envelope)
-    const envelope: KayrosEnvelope<string> = {
-      data: testData,
-      kayros: {
+    const timestampResponse = {
+      success: true,
+      data: {
+        success: true,
+        message: 'ok',
+        data_type: '',
+        data_item: dataHash,
+        computed_hash_hex: computedHash,
+        timeuuid_hex: '',
+        data_type_hex: '',
+        data_item_hex: dataHash,
+      },
+    };
+
+    const envelope = new KayrosEnvelope<string>(
+      testData,
+      {
         hash: dataHash,
         hashAlgorithm: 'keccak256',
         timestamp: {
           service: 'kayros',
-          response: kayrosResponse,
+          response: timestampResponse,
         },
-      },
-    };
+      }
+    );
 
     // Step 5: Verify the proof
     const verifyResult = await verify(envelope);
@@ -51,7 +65,7 @@ describe('Full cycle integration', () => {
     // Verify hash matches
     expect(verifyResult.details?.hashMatch).toBe(true);
     expect(verifyResult.details?.computedHash).toBe(dataHash);
-    expect(verifyResult.details?.envelopeHash).toBe(dataHash);
+    expect(verifyResult.details?.dataHash).toBe(dataHash);
 
     // Verify remote record exists and matches
     expect(verifyResult.details?.remoteMatch).toBe(true);
