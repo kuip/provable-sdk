@@ -21,14 +21,14 @@ import (
 )
 
 func main() {
-	// Hash bytes
+	// Hash bytes (keccak256)
 	data := []byte{1, 2, 3, 4}
-	dataHash := provable.Hash(data) // or provable.Keccak256(data)
+	dataHash := provable.Keccak256(data)
 	fmt.Println("Data hash:", dataHash)
 
-	// Hash string
+	// Hash string (sha256 - default)
 	text := "Hello, Provable!"
-	strHash := provable.HashStr(text) // or provable.Keccak256Str(text)
+	strHash := provable.SHA256Str(text)
 	fmt.Println("String hash:", strHash)
 
 	// Prove a hash
@@ -59,14 +59,14 @@ func main() {
 	}
 	fmt.Println("String proof:", strProof)
 
-	// Verify data with Kayros proof
+	// Create and verify a KayrosEnvelope
 	envelope := &provable.KayrosEnvelope{
 		Data: map[string]string{"message": "Hello, Provable!"},
 		Kayros: provable.KayrosMetadata{
-			Hash:          "abc123...",
-			HashAlgorithm: "keccak256",
+			Hash:          strHash,
+			HashAlgorithm: "sha256",
 			Timestamp: &provable.KayrosTimestamp{
-				Service:  "https://kayros.provable.dev/api/grpc/single-hash",
+				Service:  "kayros",
 				Response: proof,
 			},
 		},
@@ -85,10 +85,11 @@ func main() {
 
 ### Hash Functions
 
-- `Hash(data []byte) string` - Compute keccak256 hash of bytes
-- `Keccak256(data []byte) string` - Alias for `Hash`
-- `HashStr(s string) string` - Compute keccak256 hash of a UTF-8 string
-- `Keccak256Str(s string) string` - Alias for `HashStr`
+- `Keccak256(data []byte) string` - Compute keccak256 hash of bytes
+- `Keccak256Str(s string) string` - Compute keccak256 hash of a UTF-8 string
+- `SHA256(data []byte) string` - Compute SHA-256 hash of bytes
+- `SHA256Str(s string) string` - Compute SHA-256 hash of a UTF-8 string
+- `Hash` / `HashStr` - Aliases for Keccak256 functions
 
 ### Prove Functions
 
@@ -103,6 +104,31 @@ func main() {
 ### Verify Function
 
 - `Verify(envelope *KayrosEnvelope) *VerifyResult` - Verify data against Kayros proof
+
+## KayrosEnvelope
+
+The `KayrosEnvelope` struct wraps data with Kayros proof metadata:
+
+```go
+envelope := &provable.KayrosEnvelope{
+	Data:   myData,
+	Kayros: kayrosMetadata,
+}
+
+// Helper methods
+data, err := envelope.GetData()    // Get data as []byte (decodes base64 for V0)
+envelope.GetDataHash()             // Get the data hash (data_item_hex)
+envelope.GetDataType()             // Get the data type (data_type_hex)
+envelope.GetKayrosHash()           // Get the Kayros hash (computed_hash_hex)
+envelope.GetTimeUUID()             // Get the time UUID (timeuuid_hex)
+envelope.GetHashAlgorithm()        // Get hash algorithm (defaults to "sha256")
+envelope.IsV0()                    // Check if V0 format (legacy, for email proofs)
+```
+
+### Envelope Formats
+
+- **V1 (default)**: Hash stored in `Kayros.Hash`, data is plain string or object
+- **V0 (legacy)**: Hash in `Kayros.Data.DataItemHex`, data is base64-encoded bytes (used for email proofs)
 
 ## Configuration
 

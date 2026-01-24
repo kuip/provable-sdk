@@ -16,21 +16,23 @@ import {
   keccak256,
   hash_str,
   keccak256_str,
+  sha256,
+  sha256_str,
   prove_single_hash,
   get_record_by_hash,
   prove_data,
   prove_data_str,
   verify,
-  type KayrosEnvelope,
+  KayrosEnvelope,
 } from 'provable-sdk-js';
 
-// Hash bytes
+// Hash bytes (keccak256)
 const data = new Uint8Array([1, 2, 3, 4]);
-const dataHash = hash(data); // or keccak256(data)
+const dataHash = keccak256(data);
 
-// Hash string
+// Hash string (sha256 - default)
 const str = "Hello, Provable!";
-const strHash = hash_str(str); // or keccak256_str(str)
+const strHash = await sha256_str(str);
 
 // Prove a hash
 const proof = await prove_single_hash(dataHash);
@@ -44,18 +46,18 @@ const dataProof = await prove_data(data);
 // Prove string data directly
 const strProof = await prove_data_str(str);
 
-// Verify data with Kayros proof
-const envelope: KayrosEnvelope = {
-  data: { message: "Hello, Provable!" },
-  kayros: {
-    hash: "abc123...",
-    hashAlgorithm: 'keccak256',
+// Create and verify a KayrosEnvelope
+const envelope = new KayrosEnvelope(
+  { message: "Hello, Provable!" },
+  {
+    hash: strHash,
+    hashAlgorithm: 'sha256',
     timestamp: {
-      service: "https://kayros.provable.dev/api/grpc/single-hash",
+      service: "kayros",
       response: proof,
     },
-  },
-};
+  }
+);
 
 const result = await verify(envelope);
 if (result.valid) {
@@ -69,10 +71,11 @@ if (result.valid) {
 
 ### Hash Functions
 
-- `hash(data: Uint8Array): string` - Compute keccak256 hash of bytes
-- `keccak256(data: Uint8Array): string` - Alias for `hash`
-- `hash_str(str: string): string` - Compute keccak256 hash of a UTF-8 string
-- `keccak256_str(str: string): string` - Alias for `hash_str`
+- `keccak256(data: Uint8Array): string` - Compute keccak256 hash of bytes
+- `keccak256_str(str: string): string` - Compute keccak256 hash of a UTF-8 string
+- `sha256(data: Uint8Array): Promise<string>` - Compute SHA-256 hash of bytes
+- `sha256_str(str: string): Promise<string>` - Compute SHA-256 hash of a UTF-8 string
+- `hash` / `hash_str` - Aliases for keccak256 functions
 
 ### Prove Functions
 
@@ -87,6 +90,28 @@ if (result.valid) {
 ### Verify Function
 
 - `verify<T>(envelope: KayrosEnvelope<T>): Promise<VerifyResult>` - Verify data against Kayros proof
+
+## KayrosEnvelope
+
+The `KayrosEnvelope` class wraps data with Kayros proof metadata:
+
+```typescript
+const envelope = new KayrosEnvelope(data, kayrosMetadata);
+
+// Helper methods
+envelope.getData();          // Get data as Uint8Array (decodes base64 for V0)
+envelope.getDataHash();      // Get the data hash (data_item_hex)
+envelope.getDataType();      // Get the data type (data_type_hex)
+envelope.getKayrosHash();    // Get the Kayros hash (computed_hash_hex)
+envelope.getTimeUUID();      // Get the time UUID (timeuuid_hex)
+envelope.getHashAlgorithm(); // Get hash algorithm (defaults to 'sha256')
+envelope.isV0();             // Check if V0 format (legacy, for email proofs)
+```
+
+### Envelope Formats
+
+- **V1 (default)**: Hash stored in `kayros.hash`, data is plain string or object
+- **V0 (legacy)**: Hash in `kayros.data.data_item_hex`, data is base64-encoded bytes (used for email proofs)
 
 ## Configuration
 
