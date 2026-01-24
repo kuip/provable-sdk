@@ -1,6 +1,11 @@
 package provable
 
-import "strings"
+import (
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"strings"
+)
 
 // KayrosTimestamp represents a timestamp from the Kayros service
 type KayrosTimestamp struct {
@@ -88,6 +93,26 @@ func (e *KayrosEnvelope) GetHashAlgorithm() string {
 // V0 envelopes have base64-encoded data that must be decoded before hashing.
 func (e *KayrosEnvelope) IsV0() bool {
 	return e.Kayros.Hash == "" && e.Kayros.Data != nil && e.Kayros.Data.DataItemHex != ""
+}
+
+// GetData returns the data as bytes.
+// For V0 (legacy email proofs): decodes base64 data to bytes.
+// For V1: stringifies objects to JSON and encodes as UTF-8 bytes.
+func (e *KayrosEnvelope) GetData() ([]byte, error) {
+	if e.IsV0() {
+		// V0 format: data is base64 encoded
+		dataStr, ok := e.Data.(string)
+		if !ok {
+			return nil, fmt.Errorf("V0 envelope data must be a base64 string")
+		}
+		return base64.StdEncoding.DecodeString(dataStr)
+	}
+
+	// V1 format: stringify objects to JSON, encode as UTF-8
+	if str, ok := e.Data.(string); ok {
+		return []byte(str), nil
+	}
+	return json.Marshal(e.Data)
 }
 
 // ProveSingleHashResponseData contains the computed hash from Kayros

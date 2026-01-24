@@ -2,6 +2,8 @@
 Provable SDK Types
 """
 
+import base64
+import json
 from typing import TypedDict, Optional, Any, Dict
 
 
@@ -102,6 +104,21 @@ class KayrosEnvelope:
             and isinstance(self.kayros["data"], dict)
             and "data_item_hex" in self.kayros["data"]
         )
+
+    def get_data(self) -> bytes:
+        """Get the data as bytes.
+        For V0 (legacy email proofs): decodes base64 data to bytes.
+        For V1: stringifies objects to JSON and encodes as UTF-8 bytes."""
+        if self.is_v0():
+            # V0 format: data is base64 encoded
+            if not isinstance(self.data, str):
+                raise ValueError("V0 envelope data must be a base64 string")
+            return base64.b64decode(self.data)
+        else:
+            # V1 format: stringify objects to JSON, encode as UTF-8
+            if isinstance(self.data, str):
+                return self.data.encode('utf-8')
+            return json.dumps(self.data, separators=(',', ':')).encode('utf-8')
 
 
 class ProveSingleHashResponseData(TypedDict):

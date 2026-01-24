@@ -111,6 +111,32 @@ export class KayrosEnvelope<T = unknown> {
     const m = this.kayros;
     return 'success' in m && !('hash' in m && m.hash);
   }
+
+  /**
+   * Get the data as bytes.
+   * For V0 (legacy email proofs): decodes base64 data to bytes.
+   * For V1: stringifies objects to JSON and encodes as UTF-8 bytes.
+   */
+  getData(): Uint8Array {
+    if (this.isV0()) {
+      // V0 format: data is base64 encoded
+      if (typeof this.data !== 'string') {
+        throw new Error('V0 envelope data must be a base64 string');
+      }
+      const binaryString = atob(this.data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      return bytes;
+    } else {
+      // V1 format: stringify objects to JSON, encode as UTF-8
+      const dataString = typeof this.data === 'string'
+        ? this.data
+        : JSON.stringify(this.data);
+      return new TextEncoder().encode(dataString);
+    }
+  }
 }
 
 export interface ProveSingleHashResponse {
