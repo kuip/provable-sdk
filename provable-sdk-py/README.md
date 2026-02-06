@@ -110,14 +110,6 @@ envelope.is_v0()              # Check if V0 format (legacy, for email proofs)
 - **V1 (default)**: Hash stored in `kayros["hash"]`, data is plain string or object
 - **V0 (legacy)**: Hash in `kayros["data"]["data_item_hex"]`, data is base64-encoded bytes (used for email proofs)
 
-## Configuration
-
-Default configuration:
-- `KAYROS_HOST`: `https://kayros.provable.dev`
-- API Routes:
-  - Single Hash: `/api/grpc/single-hash`
-  - Get Record: `/api/database/record-by-hash`
-
 ## License
 
 MIT

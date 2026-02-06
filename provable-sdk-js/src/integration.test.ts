@@ -8,6 +8,7 @@ import { keccak256_str } from './hash';
 import { prove_single_hash, get_record_by_hash } from './api';
 import { verify } from './verify';
 import { KayrosEnvelope } from './types';
+import { getRecordUrl } from './config';
 
 describe('Full cycle integration', () => {
   it('should complete full cycle: data -> hash -> index -> verify', async () => {
@@ -22,25 +23,15 @@ describe('Full cycle integration', () => {
     // Step 3: Index with Kayros (prove the hash)
     const kayrosResponse = await prove_single_hash(dataHash);
     expect(kayrosResponse).toBeDefined();
-    expect(kayrosResponse.data).toBeDefined();
-    expect(kayrosResponse.data.computed_hash_hex).toBeDefined();
-    expect(kayrosResponse.data.computed_hash_hex).toHaveLength(64);
-
-    const computedHash = kayrosResponse.data.computed_hash_hex;
+    expect(kayrosResponse.hash).toBeDefined();
+    expect(kayrosResponse.hash).toHaveLength(64);
+    const computedHash = kayrosResponse.hash;
 
     // Step 4: Build proof object (envelope)
     const timestampResponse = {
       success: true,
-      data: {
-        success: true,
-        message: 'ok',
-        data_type: '',
-        data_item: dataHash,
-        computed_hash_hex: computedHash,
-        timeuuid_hex: '',
-        data_type_hex: '',
-        data_item_hex: dataHash,
-      },
+      hash: computedHash,
+      timeuuid: '',
     };
 
     const envelope = new KayrosEnvelope<string>(
@@ -57,6 +48,7 @@ describe('Full cycle integration', () => {
 
     // Step 5: Verify the proof
     const verifyResult = await verify(envelope);
+    const recordUrl = getRecordUrl(computedHash);
 
     // Verify result is valid
     expect(verifyResult.valid).toBe(true);
@@ -74,7 +66,7 @@ describe('Full cycle integration', () => {
     // Step 6: Verify we can retrieve the record by hash using the computed hash from Kayros
     const record = await get_record_by_hash(computedHash);
     expect(record).toBeDefined();
-    expect(record.data).toBeDefined();
-    expect(record.data.data_item_hex).toBe(dataHash);
+    const dataItemHex = Buffer.from(record.data_item, 'base64').toString('hex');
+    expect(dataItemHex).toBe(dataHash);
   }, 30000); // 30 second timeout for API calls
 });

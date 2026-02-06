@@ -82,14 +82,34 @@ func (e *KayrosEnvelope) GetDataTypeLabel() string {
 		return ""
 	}
 
-	label := strings.TrimSpace(strings.ReplaceAll(string(decoded), "\x00", ""))
-	return label
+	return string(decoded)
 }
 
 // GetKayrosHash returns the Kayros hash (computed_hash_hex) from the metadata
 func (e *KayrosEnvelope) GetKayrosHash() string {
 	if e.Kayros.Data != nil && e.Kayros.Data.ComputedHashHex != "" {
 		return e.Kayros.Data.ComputedHashHex
+	}
+	if e.Kayros.Timestamp != nil && e.Kayros.Timestamp.Response != nil {
+		switch response := e.Kayros.Timestamp.Response.(type) {
+		case map[string]interface{}:
+			if value, ok := response["hash"].(string); ok && value != "" {
+				return value
+			}
+			if data, ok := response["data"].(map[string]interface{}); ok {
+				if value, ok := data["computed_hash_hex"].(string); ok && value != "" {
+					return value
+				}
+			}
+		case ProveSingleHashResponse:
+			if response.Hash != "" {
+				return response.Hash
+			}
+		case *ProveSingleHashResponse:
+			if response != nil && response.Hash != "" {
+				return response.Hash
+			}
+		}
 	}
 	return ""
 }
@@ -98,6 +118,18 @@ func (e *KayrosEnvelope) GetKayrosHash() string {
 func (e *KayrosEnvelope) GetTimeUUID() string {
 	if e.Kayros.Data != nil && e.Kayros.Data.TimeuuidHex != "" {
 		return e.Kayros.Data.TimeuuidHex
+	}
+	if e.Kayros.Timestamp != nil && e.Kayros.Timestamp.Response != nil {
+		if response, ok := e.Kayros.Timestamp.Response.(map[string]interface{}); ok {
+			if value, ok := response["timeuuid"].(string); ok && value != "" {
+				return value
+			}
+			if data, ok := response["data"].(map[string]interface{}); ok {
+				if value, ok := data["timeuuid_hex"].(string); ok && value != "" {
+					return value
+				}
+			}
+		}
 	}
 	return ""
 }
@@ -152,27 +184,25 @@ func (e *KayrosEnvelope) ComputeDataHash() (string, error) {
 	return SHA256(data), nil
 }
 
-// ProveSingleHashResponseData contains the computed hash from Kayros
-type ProveSingleHashResponseData struct {
-	ComputedHashHex string                 `json:"computed_hash_hex"`
-	Extra           map[string]interface{} `json:"-"`
-}
-
 // ProveSingleHashResponse is the response from the prove single hash API
 type ProveSingleHashResponse struct {
-	Data ProveSingleHashResponseData `json:"data"`
-}
-
-// GetRecordResponseData contains the record data from Kayros
-type GetRecordResponseData struct {
-	DataItemHex string                 `json:"data_item_hex"`
-	Timestamp   string                 `json:"timestamp,omitempty"`
-	Extra       map[string]interface{} `json:"-"`
+	Success  bool   `json:"success"`
+	Hash     string `json:"hash,omitempty"`
+	TimeUUID string `json:"timeuuid,omitempty"`
+	Encoding string `json:"encoding,omitempty"`
+	Error    string `json:"error,omitempty"`
 }
 
 // GetRecordResponse is the response from the get record by hash API
 type GetRecordResponse struct {
-	Data GetRecordResponseData `json:"data"`
+	DataItemHex string `json:"data_item_hex,omitempty"`
+	DataItem    string `json:"data_item"`
+	DataType    string `json:"data_type"`
+	HashItem    string `json:"hash_item"`
+	HashType    string `json:"hash_type"`
+	Position    int64  `json:"position"`
+	PrevHash    string `json:"prev_hash,omitempty"`
+	Ts          string `json:"ts"`
 }
 
 // VerifyResultDetails contains detailed information about the verification

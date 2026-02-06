@@ -2,6 +2,7 @@
 Verification utilities
 """
 
+import base64
 import time
 
 from .api import get_record_by_hash
@@ -45,19 +46,25 @@ def verify(envelope: KayrosEnvelope) -> VerifyResult:
 
         # If there's a Kayros hash, verify against remote record
         kayros_hash = envelope.get_kayros_hash()
+        data_type = envelope.get_data_type_label() or None
         if kayros_hash:
             try:
                 # Fetch remote record with retry logic
                 try:
-                    remote_record = get_record_by_hash(kayros_hash)
+                    remote_record = get_record_by_hash(kayros_hash, data_type)
                 except Exception:
                     # Retry once after 2 seconds
                     time.sleep(2)
-                    remote_record = get_record_by_hash(kayros_hash)
+                    remote_record = get_record_by_hash(kayros_hash, data_type)
 
-                if (not isinstance(remote_record, dict) or
-                    "data" not in remote_record or
-                    "data_item_hex" not in remote_record["data"]):
+                remote_data_item_hex = None
+                if isinstance(remote_record, dict):
+                    remote_data_item_hex = remote_record.get("data_item")
+                if isinstance(remote_data_item_hex, str):
+                    if not _is_hex_64(remote_data_item_hex):
+                        normalized = _normalize_remote_data_item_hex(remote_data_item_hex)
+                        remote_data_item_hex = normalized
+                if not remote_data_item_hex:
                     return {
                         "valid": False,
                         "error": "Invalid remote record structure",
@@ -67,8 +74,6 @@ def verify(envelope: KayrosEnvelope) -> VerifyResult:
                             "dataHash": data_hash,
                         },
                     }
-
-                remote_data_item_hex = remote_record["data"]["data_item_hex"]
                 remote_match = computed_hash == remote_data_item_hex
 
                 if not remote_match:
@@ -119,3 +124,39 @@ def verify(envelope: KayrosEnvelope) -> VerifyResult:
             "valid": False,
             "error": f"Verification error: {str(e)}",
         }
+
+
+def _is_hex_64(value: str) -> bool:
+    if len(value) != 64:
+        return False
+    try:
+        int(value, 16)
+        return True
+    except ValueError:
+        return False
+
+
+def _normalize_remote_data_item_hex(value: str) -> str | None:
+    if not value:
+        return None
+
+    try:
+        decoded = base64.b64decode(value)
+    except Exception:
+        decoded = None
+
+    if decoded is not None:
+        try:
+            decoded_text = decoded.decode("utf-8")
+            if _is_hex_64(decoded_text):
+                return decoded_text.lower()
+        except Exception:
+            pass
+
+        if len(decoded) == 32:
+            return decoded.hex()
+
+    if _is_hex_64(value):
+        return value.lower()
+
+    return None

@@ -1,9 +1,54 @@
 package provable
 
 import (
+	"encoding/base64"
 	"fmt"
+	"strings"
 	"time"
 )
+
+func normalizeRemoteDataItemHex(value string) string {
+	if value == "" {
+		return ""
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(value)
+	if err != nil {
+		decoded, err = base64.URLEncoding.DecodeString(value)
+		if err != nil {
+			decoded = nil
+		}
+	}
+
+	if decoded != nil {
+		decodedText := string(decoded)
+		if isHex64(decodedText) {
+			return strings.ToLower(decodedText)
+		}
+
+		if len(decoded) == 32 {
+			return fmt.Sprintf("%x", decoded)
+		}
+	}
+
+	if isHex64(value) {
+		return strings.ToLower(value)
+	}
+
+	return ""
+}
+
+func isHex64(value string) bool {
+	if len(value) != 64 {
+		return false
+	}
+	for _, c := range value {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
+			return false
+		}
+	}
+	return true
+}
 
 // Verify verifies data against a Kayros proof
 func Verify(envelope *KayrosEnvelope) *VerifyResult {
@@ -41,16 +86,17 @@ func Verify(envelope *KayrosEnvelope) *VerifyResult {
 
 	// If there's a Kayros hash, verify against remote record
 	kayrosHash := envelope.GetKayrosHash()
+	dataType := envelope.GetDataTypeLabel()
 	if kayrosHash != "" {
 		// Fetch remote record with retry logic
 		var remoteRecord *GetRecordResponse
 		var err error
 
-		remoteRecord, err = GetRecordByHash(kayrosHash)
+		remoteRecord, err = GetRecordByHash(kayrosHash, dataType)
 		if err != nil {
 			// Retry once after 2 seconds
 			time.Sleep(2 * time.Second)
-			remoteRecord, err = GetRecordByHash(kayrosHash)
+			remoteRecord, err = GetRecordByHash(kayrosHash, dataType)
 			if err != nil {
 				return &VerifyResult{
 					Valid: false,
@@ -64,7 +110,22 @@ func Verify(envelope *KayrosEnvelope) *VerifyResult {
 			}
 		}
 
-		remoteDataItemHex := remoteRecord.Data.DataItemHex
+		remoteDataItemHex := remoteRecord.DataItemHex
+		if remoteDataItemHex == "" && remoteRecord.DataItem != "" {
+			remoteDataItemHex = normalizeRemoteDataItemHex(remoteRecord.DataItem)
+		}
+		remoteDataItemHex = normalizeRemoteDataItemHex(remoteDataItemHex)
+		if remoteDataItemHex == "" {
+			return &VerifyResult{
+				Valid: false,
+				Error: "Invalid remote record structure",
+				Details: &VerifyResultDetails{
+					HashMatch:    true,
+					ComputedHash: computedHash,
+					DataHash: dataHash,
+				},
+			}
+		}
 		remoteMatch := computedHash == remoteDataItemHex
 
 		if !remoteMatch {

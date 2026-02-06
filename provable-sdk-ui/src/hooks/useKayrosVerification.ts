@@ -19,12 +19,12 @@ export interface VerificationState {
   timestamp?: string;
 }
 
-async function fetchRecordWithRetry(hash: string): Promise<GetRecordResponse> {
+async function fetchRecordWithRetry(hash: string, dataType?: string): Promise<GetRecordResponse> {
   try {
-    return await get_record_by_hash(hash);
+    return await get_record_by_hash(hash, dataType);
   } catch (firstError) {
     await new Promise(resolve => setTimeout(resolve, 2000));
-    return get_record_by_hash(hash);
+    return get_record_by_hash(hash, dataType);
   }
 }
 
@@ -56,6 +56,7 @@ export function useKayrosVerification(envelope?: KayrosEnvelope): VerificationSt
         const computedHash = await normalized.computeDataHash();
         const hashMatch = computedHash === dataHash;
         const kayrosHash = normalized.getKayrosHash();
+        const dataType = normalized.getDataType() || undefined;
 
         let recordUrl: string | undefined;
         let remoteRecord: GetRecordResponse | undefined;
@@ -64,12 +65,13 @@ export function useKayrosVerification(envelope?: KayrosEnvelope): VerificationSt
         let timestamp: string | undefined;
 
         if (kayrosHash) {
-          recordUrl = getRecordUrl(kayrosHash);
+          recordUrl = getRecordUrl(kayrosHash, dataType ?? undefined);
           try {
-            remoteRecord = await fetchRecordWithRetry(kayrosHash);
+            remoteRecord = await fetchRecordWithRetry(kayrosHash, dataType);
 
-            if (remoteRecord?.data?.data_item_hex) {
-              remoteMatch = computedHash === remoteRecord.data.data_item_hex;
+            const remoteDataItemHex = remoteRecord?.data?.data_item_hex ?? (remoteRecord as any)?.data_item_hex;
+            if (remoteDataItemHex) {
+              remoteMatch = computedHash === remoteDataItemHex;
             }
 
             if (remoteRecord?.data?.timestamp) {

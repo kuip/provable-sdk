@@ -5,12 +5,12 @@ Provable SDK Configuration
 KAYROS_HOST = "https://kayros.provable.dev"
 
 API_ROUTES = {
-    "PROVE_SINGLE_HASH": "/api/grpc/single-hash",
-    "GET_RECORD_BY_HASH": "/api/database/record-by-hash",
+    "PROVE_SINGLE_HASH": "/api/lightnet/grpc/single-hash",
+    "GET_RECORD_BY_HASH": "/api/lightnet/database/record-by-hash",
 }
 
-# "provable_sdk" (0x70726f7661626c655f73646b) padded to 32 bytes
-DATA_TYPE = "70726f7661626c655f73646b0000000000000000000000000000000000000000"
+# Default data type (provable_sdk padded to 32 bytes)
+DATA_TYPE = "provable_sdk" + ("\x00" * 20)
 
 
 def get_kayros_url(route: str) -> str:
@@ -18,7 +18,7 @@ def get_kayros_url(route: str) -> str:
     return KAYROS_HOST + route
 
 
-def get_record_url(hash: str) -> str:
+def get_record_url(hash: str, data_type: str = DATA_TYPE) -> str:
     """
     Get the URL to view a record on Kayros by its hash
 
@@ -28,22 +28,47 @@ def get_record_url(hash: str) -> str:
     Returns:
         The full URL to view the record
     """
-    return f"{KAYROS_HOST}/api/database/record-by-hash?hash_item={hash}"
+    return (
+        f"{KAYROS_HOST}{API_ROUTES['GET_RECORD_BY_HASH']}?hash={format_hash_for_query(hash)}"
+        f"&data_type={format_data_type_for_query(data_type)}"
+    )
 
 
 def validate_data_type(data_type: str) -> None:
     """
-    Validates that a data type is exactly 32 bytes (64 hex characters)
+    Validates that a data type is at most 32 bytes
 
     Args:
         data_type: The data type to validate
 
     Raises:
-        ValueError: If data type is not exactly 64 hex characters
+        ValueError: If data type exceeds 32 bytes
     """
-    if len(data_type) != 64:
-        raise ValueError(f"data_type must be exactly 64 hex characters (32 bytes), got {len(data_type)} characters")
+    byte_length = len(data_type.encode("utf-8"))
+    if byte_length > 32:
+        raise ValueError(f"data_type must be at most 32 bytes, got {byte_length} bytes")
 
+
+def format_data_type_for_query(data_type: str) -> str:
+    """
+    Format data type for Kayros query params (pad to 32 bytes with nulls).
+    """
+    from urllib.parse import quote_from_bytes
+
+    raw = data_type.encode("utf-8")
+    trimmed = raw[:32].rstrip(b"\x00")
+    return quote_from_bytes(trimmed)
+
+
+def format_hash_for_query(hash_value: str) -> str:
+    """
+    Format hash for Kayros query params (base64 when input is 64-hex).
+    """
     import re
-    if not re.match(r'^[0-9a-fA-F]{64}$', data_type):
-        raise ValueError("data_type must contain only valid hex characters (0-9, a-f, A-F)")
+    import base64
+    from urllib.parse import quote
+
+    if re.fullmatch(r"[0-9a-fA-F]{64}", hash_value or ""):
+        raw = bytes.fromhex(hash_value)
+        return quote(base64.b64encode(raw))
+    return quote(hash_value)

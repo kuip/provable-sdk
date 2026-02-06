@@ -2,7 +2,7 @@
  * Lightnet API client - Database, Hash, and Merkle operations
  */
 
-import { getKayrosUrl } from './config';
+import { API_ROUTES, getKayrosUrl } from './config';
 import type {
   APIResponse,
   DatabaseQuery,
@@ -236,7 +236,7 @@ export async function compute_hash_from_hex(request: ComputeHashRequest): Promis
  * @returns Promise with gRPC response
  */
 export async function send_single_grpc_request(request: SingleHashRequest): Promise<APIResponse<SingleHashResponse>> {
-  const url = getKayrosUrl('/api/grpc/single-hash');
+  const url = getKayrosUrl(API_ROUTES.PROVE_SINGLE_HASH);
 
   const response = await fetch(url, {
     method: 'POST',

@@ -41,6 +41,16 @@ class KayrosMetadataV0(TypedDict, total=False):
     hashAlgorithm: str
 
 
+class GetRecordResponse(TypedDict, total=False):
+    data_item: str
+    data_type: str
+    hash_item: str
+    hash_type: str
+    position: int
+    prev_hash: str
+    ts: str
+
+
 class KayrosEnvelope:
     """Kayros envelope with data and proof metadata"""
 
@@ -91,14 +101,18 @@ class KayrosEnvelope:
         except ValueError:
             return None
 
-        trimmed = decoded.replace("\x00", "").strip()
-        return trimmed or None
+        return decoded if decoded else None
 
     def get_kayros_hash(self) -> Optional[str]:
         """Get the Kayros hash (computed_hash_hex) from the metadata"""
         data = self._get_metadata_data()
         if data and "computed_hash_hex" in data:
             return data["computed_hash_hex"]
+        if "timestamp" in self.kayros and isinstance(self.kayros["timestamp"], dict):
+            response = self.kayros["timestamp"].get("response", {})
+            if isinstance(response, dict):
+                if "hash" in response:
+                    return response["hash"]
         return None
 
     def get_time_uuid(self) -> Optional[str]:
@@ -106,6 +120,11 @@ class KayrosEnvelope:
         data = self._get_metadata_data()
         if data and "timeuuid_hex" in data:
             return data["timeuuid_hex"]
+        if "timestamp" in self.kayros and isinstance(self.kayros["timestamp"], dict):
+            response = self.kayros["timestamp"].get("response", {})
+            if isinstance(response, dict):
+                if "timeuuid" in response:
+                    return response["timeuuid"]
         return None
 
     def get_hash_algorithm(self) -> str:
@@ -150,21 +169,18 @@ class KayrosEnvelope:
         return sha256(data)
 
 
-class ProveSingleHashResponseData(TypedDict):
-    computed_hash_hex: str
+class ProveSingleHashResponse(TypedDict, total=False):
+    success: bool
+    hash: str
+    timeuuid: str
+    encoding: str
+    error: str
 
 
-class ProveSingleHashResponse(TypedDict):
-    data: ProveSingleHashResponseData
-
-
-class GetRecordResponseData(TypedDict, total=False):
+class GetRecordResponse(TypedDict, total=False):
+    data: Dict[str, Any]
     data_item_hex: str
     timestamp: str
-
-
-class GetRecordResponse(TypedDict):
-    data: GetRecordResponseData
 
 
 class VerifyResultDetails(TypedDict, total=False):

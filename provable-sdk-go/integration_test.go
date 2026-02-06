@@ -31,14 +31,14 @@ func TestFullCycleIntegration(t *testing.T) {
 	if kayrosResponse == nil {
 		t.Fatal("kayrosResponse is nil")
 	}
-	if kayrosResponse.Data.ComputedHashHex == "" {
-		t.Fatal("computed_hash_hex is empty")
+	if kayrosResponse.Hash == "" {
+		t.Fatal("hash is empty")
 	}
-	if len(kayrosResponse.Data.ComputedHashHex) != 64 {
-		t.Errorf("computed_hash_hex length = %d, want 64", len(kayrosResponse.Data.ComputedHashHex))
+	if len(kayrosResponse.Hash) != 64 {
+		t.Errorf("hash length = %d, want 64", len(kayrosResponse.Hash))
 	}
 
-	computedHash := kayrosResponse.Data.ComputedHashHex
+	computedHash := kayrosResponse.Hash
 
 	// Step 4: Build proof object (envelope)
 	envelope := &KayrosEnvelope{
@@ -90,14 +90,14 @@ func TestFullCycleIntegration(t *testing.T) {
 	}
 
 	// Step 6: Verify we can retrieve the record by hash using the computed hash from Kayros
-	record, err := GetRecordByHash(computedHash)
+	record, err := GetRecordByHash(computedHash, DataType)
 	if err != nil {
 		t.Fatalf("GetRecordByHash failed: %v", err)
 	}
 	if record == nil {
 		t.Fatal("record is nil")
 	}
-	if record.Data.DataItemHex != dataHash {
-		t.Errorf("data_item_hex = %v, want %v", record.Data.DataItemHex, dataHash)
+	if record.DataItemHex != dataHash {
+		t.Errorf("data_item_hex = %v, want %v", record.DataItemHex, dataHash)
 	}
 }

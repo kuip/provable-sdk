@@ -6,7 +6,7 @@ import requests
 from typing import Any, Dict, List
 from urllib.parse import urlencode
 
-from .config import get_kayros_url
+from .config import get_kayros_url, API_ROUTES
 from .types import (
     APIResponse,
     DatabaseQuery,
@@ -230,7 +230,7 @@ def send_single_grpc_request(request: SingleHashRequest) -> APIResponse:
     Raises:
         requests.HTTPError: If the API request fails
     """
-    url = get_kayros_url('/api/grpc/single-hash')
+    url = get_kayros_url(API_ROUTES["PROVE_SINGLE_HASH"])
     response = requests.post(url, json=request, headers={'Content-Type': 'application/json'})
     response.raise_for_status()
     return response.json()

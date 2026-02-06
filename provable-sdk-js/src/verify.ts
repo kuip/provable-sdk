@@ -6,6 +6,34 @@ import { get_record_by_hash } from './api';
 import type { VerifyResult } from './types';
 import { KayrosEnvelope } from './types';
 
+function normalizeRemoteDataItemHex(value: string): string | undefined {
+  if (!value) return undefined;
+
+  // Kayros GetRecordByHash returns blob fields base64-encoded.
+  try {
+    const decoded = atob(value);
+    if (/^[0-9a-fA-F]{64}$/.test(decoded)) {
+      return decoded.toLowerCase();
+    }
+
+    const bytes = new Uint8Array(decoded.length);
+    for (let i = 0; i < decoded.length; i++) {
+      bytes[i] = decoded.charCodeAt(i);
+    }
+    if (bytes.length === 32) {
+      return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+  } catch {
+    // fallthrough to hex
+  }
+
+  if (/^[0-9a-fA-F]{64}$/.test(value)) {
+    return value.toLowerCase();
+  }
+
+  return undefined;
+}
+
 /**
  * Verify data against a Kayros proof
  * @param envelope - Object containing data and kayros metadata
@@ -41,20 +69,31 @@ export async function verify<T = unknown>(envelope: KayrosEnvelope<T>): Promise<
 
     // If there's a Kayros hash, verify against remote record
     const kayrosHash = envelope.getKayrosHash();
+    const dataType = envelope.getDataTypeLabel() || undefined;
     if (kayrosHash) {
 
       try {
         // Fetch remote record with retry logic
         let remoteRecord;
-        try {
-          remoteRecord = await get_record_by_hash(kayrosHash);
-        } catch (firstError) {
-          // Retry once after 2 seconds
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          remoteRecord = await get_record_by_hash(kayrosHash);
+        let lastError: unknown;
+        const delays = [1000, 2000, 2000];
+        for (let attempt = 0; attempt < delays.length; attempt += 1) {
+          try {
+            remoteRecord = await get_record_by_hash(kayrosHash, dataType);
+            lastError = undefined;
+            break;
+          } catch (err) {
+            lastError = err;
+            await new Promise(resolve => setTimeout(resolve, delays[attempt]));
+          }
+        }
+        if (!remoteRecord) {
+          throw lastError ?? new Error('Failed to fetch remote record');
         }
 
-        if (!remoteRecord.data || !remoteRecord.data.data_item_hex) {
+        const rawRemoteDataItem = remoteRecord.data_item;
+        const remoteDataItemHex = rawRemoteDataItem ? normalizeRemoteDataItemHex(rawRemoteDataItem) : undefined;
+        if (!remoteDataItemHex) {
           return {
             valid: false,
             error: 'Invalid remote record structure',
@@ -66,7 +105,6 @@ export async function verify<T = unknown>(envelope: KayrosEnvelope<T>): Promise<
           };
         }
 
-        const remoteDataItemHex = remoteRecord.data.data_item_hex;
         const remoteMatch = computedHash === remoteDataItemHex;
 
         if (!remoteMatch) {

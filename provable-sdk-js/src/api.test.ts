@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { prove_single_hash, get_record_by_hash } from './api';
-import { getKayrosUrl, API_ROUTES, DATA_TYPE } from './config';
+import { getKayrosUrl, API_ROUTES, DATA_TYPE, formatDataTypeForQuery, getRecordUrl } from './config';
 
 // Mock fetch globally
 global.fetch = vi.fn();
@@ -17,7 +17,8 @@ describe('api', () => {
   describe('prove_single_hash', () => {
     it('should call API with default data_type', async () => {
       const mockResponse = {
-        data: { computed_hash_hex: 'abc123' },
+        success: true,
+        hash: 'abc123',
       };
 
       (global.fetch as any).mockResolvedValueOnce({
@@ -41,9 +42,10 @@ describe('api', () => {
     });
 
     it('should call API with custom data_type', async () => {
-      const customDataType = '70726f7661626c655f666f726d73000000000000000000000000000000000000';
+      const customDataType = 'provable_forms';
       const mockResponse = {
-        data: { computed_hash_hex: 'def456' },
+        success: true,
+        hash: 'def456',
       };
 
       (global.fetch as any).mockResolvedValueOnce({
@@ -66,15 +68,8 @@ describe('api', () => {
 
     it('should throw error for invalid data_type length', async () => {
       await expect(
-        prove_single_hash('test_hash', 'short')
-      ).rejects.toThrow('data_type must be exactly 64 hex characters');
-    });
-
-    it('should throw error for non-hex data_type', async () => {
-      const invalidDataType = 'gggg' + '0'.repeat(60);
-      await expect(
-        prove_single_hash('test_hash', invalidDataType)
-      ).rejects.toThrow('data_type must contain only valid hex characters');
+        prove_single_hash('test_hash', 'x'.repeat(33))
+      ).rejects.toThrow('data_type must be at most 32 bytes');
     });
 
     it('should throw error when API returns error status', async () => {
@@ -101,7 +96,12 @@ describe('api', () => {
   describe('get_record_by_hash', () => {
     it('should call API with correct URL', async () => {
       const mockResponse = {
-        data: { data_item_hex: 'abc123', timestamp: '2024-01-01' },
+        data_item: 'abc123',
+        data_type: 'provable_sdk',
+        hash_item: 'def456',
+        hash_type: 'sha3_256',
+        position: 1,
+        ts: '2024-01-01T00:00:00Z',
       };
 
       (global.fetch as any).mockResolvedValueOnce({
@@ -109,10 +109,11 @@ describe('api', () => {
         json: async () => mockResponse,
       });
 
-      const result = await get_record_by_hash('record_hash_123');
+      const result = await get_record_by_hash('record_hash_123', DATA_TYPE);
+      const expectedUrl = getRecordUrl('record_hash_123', DATA_TYPE);
 
       expect(global.fetch).toHaveBeenCalledWith(
-        `${getKayrosUrl(API_ROUTES.GET_RECORD_BY_HASH)}?hash_item=record_hash_123`,
+        expectedUrl,
         expect.objectContaining({
           method: 'GET',
         })

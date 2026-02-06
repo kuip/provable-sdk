@@ -30,11 +30,11 @@ type HashRecord struct {
 }
 
 type DatabaseStats struct {
-	TotalHashes    int64             `json:"total_hashes"`
-	CountByType    map[string]int64  `json:"count_by_type"`
-	MinTimestamp   string            `json:"min_timestamp"`
-	MaxTimestamp   string            `json:"max_timestamp"`
-	TimestampRange string            `json:"timestamp_range"`
+	TotalHashes    int64            `json:"total_hashes"`
+	CountByType    map[string]int64 `json:"count_by_type"`
+	MinTimestamp   string           `json:"min_timestamp"`
+	MaxTimestamp   string           `json:"max_timestamp"`
+	TimestampRange string           `json:"timestamp_range"`
 }
 
 type ColumnInfo struct {
@@ -89,14 +89,14 @@ type SingleHashRequest struct {
 }
 
 type SingleHashResponse struct {
-	Success        bool   `json:"success"`
-	Message        string `json:"message"`
-	DataType       string `json:"data_type"`
-	DataItem       string `json:"data_item"`
+	Success         bool   `json:"success"`
+	Message         string `json:"message"`
+	DataType        string `json:"data_type"`
+	DataItem        string `json:"data_item"`
 	ComputedHashHex string `json:"computed_hash_hex"`
-	TimeuuidHex    string `json:"timeuuid_hex"`
-	DataTypeHex    string `json:"data_type_hex"`
-	DataItemHex    string `json:"data_item_hex"`
+	TimeuuidHex     string `json:"timeuuid_hex"`
+	DataTypeHex     string `json:"data_type_hex"`
+	DataItemHex     string `json:"data_item_hex"`
 }
 
 // Merkle proof types
@@ -405,7 +405,7 @@ func ComputeHashFromHex(request ComputeHashRequest) (*APIResponse, error) {
 
 // SendSingleGRPCRequest sends a single gRPC request to Lightnet
 func SendSingleGRPCRequest(request SingleHashRequest) (*APIResponse, error) {
-	url := GetKayrosURL("/api/grpc/single-hash")
+	url := GetKayrosURL(ProveSingleHashRoute)
 
 	jsonData, err := json.Marshal(request)
 	if err != nil {

@@ -4,9 +4,11 @@ Tests: data -> hash -> index with Kayros -> build proof -> verify
 """
 
 import time
+import base64
 import pytest
 from provable_sdk.hash import keccak256_str
 from provable_sdk.api import prove_single_hash, get_record_by_hash
+from provable_sdk.config import DATA_TYPE
 from provable_sdk.verify import verify
 from provable_sdk.types import KayrosEnvelope
 
@@ -27,11 +29,10 @@ class TestFullCycleIntegration:
         # Step 3: Index with Kayros (prove the hash)
         kayros_response = prove_single_hash(data_hash)
         assert kayros_response is not None
-        assert "data" in kayros_response
-        assert "computed_hash_hex" in kayros_response["data"]
-        assert len(kayros_response["data"]["computed_hash_hex"]) == 64
+        assert "hash" in kayros_response
+        assert len(kayros_response["hash"]) == 64
 
-        computed_hash = kayros_response["data"]["computed_hash_hex"]
+        computed_hash = kayros_response["hash"]
 
         # Step 4: Build proof object (envelope)
         envelope = KayrosEnvelope(
@@ -63,7 +64,7 @@ class TestFullCycleIntegration:
         assert verify_result["details"]["remoteHash"] == data_hash
 
         # Step 6: Verify we can retrieve the record by hash using the computed hash from Kayros
-        record = get_record_by_hash(computed_hash)
+        record = get_record_by_hash(computed_hash, DATA_TYPE)
         assert record is not None
-        assert "data" in record
-        assert record["data"]["data_item_hex"] == data_hash
+        decoded = base64.b64decode(record["data_item"]).hex()
+        assert decoded == data_hash

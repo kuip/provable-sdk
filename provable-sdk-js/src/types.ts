@@ -9,7 +9,7 @@ export interface KayrosMetadata {
   hashAlgorithm?: string;
   timestamp?: {
     service: string;
-    response: APIResponse<SingleHashResponse>;
+    response: any;
   };
 }
 
@@ -89,7 +89,7 @@ export class KayrosEnvelope<T = unknown> {
     }
 
     const decoded = new TextDecoder().decode(bytes);
-    return decoded.replace(/\0/g, '').trim() || undefined;
+    return decoded.length > 0 ? decoded : undefined;
   }
 
   /**
@@ -102,8 +102,14 @@ export class KayrosEnvelope<T = unknown> {
       return m.data.computed_hash_hex;
     }
     // V1 with timestamp response
-    if ('timestamp' in m && m.timestamp?.response?.data?.computed_hash_hex) {
-      return m.timestamp.response.data.computed_hash_hex;
+    if ('timestamp' in m && m.timestamp?.response) {
+      const response = m.timestamp.response as any;
+      if (response.data?.computed_hash_hex) {
+        return response.data.computed_hash_hex;
+      }
+      if (response.hash) {
+        return response.hash;
+      }
     }
     return undefined;
   }
@@ -118,8 +124,14 @@ export class KayrosEnvelope<T = unknown> {
       return m.data.timeuuid_hex;
     }
     // V1 with timestamp response
-    if ('timestamp' in m && m.timestamp?.response?.data?.timeuuid_hex) {
-      return m.timestamp.response.data.timeuuid_hex;
+    if ('timestamp' in m && m.timestamp?.response) {
+      const response = m.timestamp.response as any;
+      if (response.data?.timeuuid_hex) {
+        return response.data.timeuuid_hex;
+      }
+      if (response.timeuuid) {
+        return response.timeuuid;
+      }
     }
     return undefined;
   }
@@ -183,18 +195,21 @@ export class KayrosEnvelope<T = unknown> {
 }
 
 export interface ProveSingleHashResponse {
-  data: {
-    computed_hash_hex: string;
-    [key: string]: unknown;
-  };
+  success: boolean;
+  hash?: string;
+  timeuuid?: string;
+  encoding?: string;
+  error?: string;
 }
 
 export interface GetRecordResponse {
-  data: {
-    data_item_hex: string;
-    timestamp?: string;
-    [key: string]: unknown;
-  };
+  data_item: string;
+  data_type: string;
+  hash_item: string;
+  hash_type: string;
+  position: number;
+  prev_hash?: string;
+  ts: string;
 }
 
 export interface VerifyResult {

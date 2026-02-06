@@ -2,10 +2,14 @@ package provable
 
 import (
 	"bytes"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"time"
 )
 
 // ProveSingleHash calls the Kayros API to prove a single hash
@@ -51,23 +55,57 @@ func ProveSingleHash(dataHash string, dataType ...string) (*ProveSingleHashRespo
 }
 
 // GetRecordByHash gets a Kayros record by hash
-func GetRecordByHash(recordHash string) (*GetRecordResponse, error) {
-	url := fmt.Sprintf("%s?hash_item=%s", GetKayrosURL(GetRecordByHashRoute), recordHash)
+func GetRecordByHash(recordHash string, dataType ...string) (*GetRecordResponse, error) {
+	dt := DataType
+	if len(dataType) > 0 && dataType[0] != "" {
+		dt = dataType[0]
+		if err := ValidateDataType(dt); err != nil {
+			return nil, err
+		}
+	}
 
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, fmt.Errorf("failed to make request: %w", err)
+	padded := FormatDataTypeForQuery(dt)
+	formattedHash := FormatHashForQuery(recordHash)
+	buildURL := func(hash string) string {
+		return fmt.Sprintf(
+			"%s?hash=%s&data_type=%s",
+			GetKayrosURL(GetRecordByHashRoute),
+			url.QueryEscape(hash),
+			url.QueryEscape(padded),
+		)
+	}
+	url := buildURL(formattedHash)
+	var resp *http.Response
+	var err error
+	for attempt := 0; attempt < 3; attempt++ {
+		resp, err = http.Get(url)
+		if err != nil {
+			return nil, fmt.Errorf("failed to make request: %w", err)
+		}
+		if resp.StatusCode == http.StatusOK {
+			break
+		}
+		if resp.StatusCode != http.StatusNotFound || attempt == 2 {
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			return nil, fmt.Errorf("kayros API error: %d %s - %s", resp.StatusCode, resp.Status, string(body))
+		}
+		resp.Body.Close()
+		time.Sleep(1 * time.Second)
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("kayros API error: %d %s - %s", resp.StatusCode, resp.Status, string(body))
-	}
 
 	var result GetRecordResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	if result.DataItemHex == "" && result.DataItem != "" {
+		if decoded, err := base64.StdEncoding.DecodeString(result.DataItem); err == nil {
+			result.DataItemHex = hex.EncodeToString(decoded)
+		} else if decoded, err := base64.URLEncoding.DecodeString(result.DataItem); err == nil {
+			result.DataItemHex = hex.EncodeToString(decoded)
+		}
 	}
 
 	return &result, nil

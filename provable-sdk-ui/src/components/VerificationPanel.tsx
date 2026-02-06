@@ -86,11 +86,13 @@ export function VerificationPanel({
               </>
             )}
 
-            {remoteRecord?.data?.data_item_hex && (
+            {(remoteRecord?.data?.data_item_hex || (remoteRecord as any)?.data_item_hex) && (
               <>
                 <div className="pv-label">Remote Data Item</div>
                 <div className="pv-value">
-                  <div className="pv-hash">{remoteRecord.data.data_item_hex}</div>
+                  <div className="pv-hash">
+                    {remoteRecord?.data?.data_item_hex ?? (remoteRecord as any)?.data_item_hex}
+                  </div>
                 </div>
               </>
             )}

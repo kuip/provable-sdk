@@ -1,7 +1,10 @@
 package provable
 
 import (
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
+	"net/url"
 	"regexp"
 )
 
@@ -11,14 +14,13 @@ const (
 	KayrosHost = "https://kayros.provable.dev"
 
 	// ProveSingleHashRoute is the API route for proving a single hash
-	ProveSingleHashRoute = "/api/grpc/single-hash"
+	ProveSingleHashRoute = "/api/lightnet/grpc/single-hash"
 
 	// GetRecordByHashRoute is the API route for getting a record by hash
-	GetRecordByHashRoute = "/api/database/record-by-hash"
+	GetRecordByHashRoute = "/api/lightnet/database/record-by-hash"
 
-	// DataType is the data type identifier for Kayros API
-	// "provable_sdk" (0x70726f7661626c655f73646b) padded to 32 bytes
-	DataType = "70726f7661626c655f73646b0000000000000000000000000000000000000000"
+	// DataType is the default data type label for Kayros API
+	DataType = "provable_sdk\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 )
 
 // GetKayrosURL builds a full Kayros API URL from a route
@@ -27,23 +29,54 @@ func GetKayrosURL(route string) string {
 }
 
 // GetRecordURL returns the URL to view a record on Kayros by its hash
-func GetRecordURL(hash string) string {
-	return fmt.Sprintf("%s/api/database/record-by-hash?hash_item=%s", KayrosHost, hash)
+func GetRecordURL(hash string, dataType ...string) string {
+	dt := DataType
+	if len(dataType) > 0 && dataType[0] != "" {
+		dt = dataType[0]
+	}
+	padded := FormatDataTypeForQuery(dt)
+	formattedHash := FormatHashForQuery(hash)
+	return fmt.Sprintf(
+		"%s%s?hash=%s&data_type=%s",
+		KayrosHost,
+		GetRecordByHashRoute,
+		url.QueryEscape(formattedHash),
+		url.QueryEscape(padded),
+	)
 }
 
-// ValidateDataType validates that a data type is exactly 32 bytes (64 hex characters)
+// ValidateDataType validates that a data type is at most 32 bytes
 func ValidateDataType(dataType string) error {
-	if len(dataType) != 64 {
-		return fmt.Errorf("data_type must be exactly 64 hex characters (32 bytes), got %d characters", len(dataType))
+	if len([]byte(dataType)) > 32 {
+		return fmt.Errorf("data_type must be at most 32 bytes, got %d bytes", len([]byte(dataType)))
 	}
-
-	matched, err := regexp.MatchString("^[0-9a-fA-F]{64}$", dataType)
-	if err != nil {
-		return fmt.Errorf("failed to validate data_type: %w", err)
-	}
-	if !matched {
-		return fmt.Errorf("data_type must contain only valid hex characters (0-9, a-f, A-F)")
-	}
-
 	return nil
+}
+
+// FormatDataTypeForQuery trims trailing nulls for query params.
+func FormatDataTypeForQuery(dataType string) string {
+	b := make([]byte, 32)
+	data := []byte(dataType)
+	if len(data) > 32 {
+		data = data[:32]
+	}
+	copy(b, data)
+	end := len(b)
+	for end > 0 && b[end-1] == 0 {
+		end--
+	}
+	return string(b[:end])
+}
+
+var hex64Pattern = regexp.MustCompile("^[0-9a-fA-F]{64}$")
+
+// FormatHashForQuery base64-encodes hex hashes for Kayros query params.
+func FormatHashForQuery(hash string) string {
+	if hex64Pattern.MatchString(hash) {
+		b, err := hex.DecodeString(hash)
+		if err == nil {
+			return base64.StdEncoding.EncodeToString(b)
+		}
+	}
+	return hash
 }

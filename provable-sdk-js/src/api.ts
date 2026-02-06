@@ -2,7 +2,7 @@
  * Kayros API client
  */
 
-import { getKayrosUrl, API_ROUTES, DATA_TYPE, validateDataType } from './config';
+import { getKayrosUrl, API_ROUTES, DATA_TYPE, validateDataType, formatDataTypeForQuery, formatHashForQuery } from './config';
 import type { ProveSingleHashResponse, GetRecordResponse } from './types';
 
 /**
@@ -43,8 +43,12 @@ export async function prove_single_hash(dataHash: string, dataType?: string): Pr
  * @param recordHash - The hash of the record to retrieve
  * @returns Promise with the record data
  */
-export async function get_record_by_hash(recordHash: string): Promise<GetRecordResponse> {
-  const url = getKayrosUrl(`${API_ROUTES.GET_RECORD_BY_HASH}?hash_item=${recordHash}`);
+export async function get_record_by_hash(recordHash: string, dataType?: string): Promise<GetRecordResponse> {
+  const dt = dataType ?? DATA_TYPE;
+  const hash = formatHashForQuery(recordHash);
+  const url = getKayrosUrl(
+    `${API_ROUTES.GET_RECORD_BY_HASH}?hash=${encodeURIComponent(hash)}&data_type=${encodeURIComponent(formatDataTypeForQuery(dt))}`
+  );
 
   const response = await fetch(url, {
     method: 'GET',
