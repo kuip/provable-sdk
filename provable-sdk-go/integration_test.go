@@ -1,6 +1,7 @@
 package provable
 
 import (
+	"encoding/hex"
 	"fmt"
 	"regexp"
 	"testing"
@@ -12,6 +13,8 @@ import (
 func TestFullCycleIntegration(t *testing.T) {
 	// Step 1: Start with test data
 	testData := fmt.Sprintf("Integration test data %d", time.Now().UnixMilli())
+	testDataType := "provable_sdk_tests"
+	testDataTypeHex := hex.EncodeToString([]byte(testDataType))
 
 	// Step 2: Hash the data
 	dataHash := Keccak256Str(testData)
@@ -24,7 +27,7 @@ func TestFullCycleIntegration(t *testing.T) {
 	}
 
 	// Step 3: Index with Kayros (prove the hash)
-	kayrosResponse, err := ProveSingleHash(dataHash)
+	kayrosResponse, err := ProveSingleHash(dataHash, testDataType)
 	if err != nil {
 		t.Fatalf("ProveSingleHash failed: %v", err)
 	}
@@ -46,6 +49,9 @@ func TestFullCycleIntegration(t *testing.T) {
 		Kayros: KayrosMetadata{
 			Hash:          dataHash,
 			HashAlgorithm: "keccak256",
+			Data: &KayrosMetadataV0Data{
+				DataTypeHex: testDataTypeHex,
+			},
 			Timestamp: &KayrosTimestamp{
 				Service:  "kayros",
 				Response: kayrosResponse,
@@ -90,7 +96,7 @@ func TestFullCycleIntegration(t *testing.T) {
 	}
 
 	// Step 6: Verify we can retrieve the record by hash using the computed hash from Kayros
-	record, err := GetRecordByHash(computedHash, DataType)
+	record, err := GetRecordByHash(computedHash, testDataType)
 	if err != nil {
 		t.Fatalf("GetRecordByHash failed: %v", err)
 	}

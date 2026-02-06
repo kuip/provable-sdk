@@ -3,6 +3,7 @@
  */
 
 export const KayrosHost = "https://kayros.provable.dev";
+// export const KayrosHost = "http://localhost:3001"
 
 export const API_ROUTES = {
   PROVE_SINGLE_HASH: "/api/lightnet/grpc/single-hash",
@@ -10,7 +11,7 @@ export const API_ROUTES = {
 } as const;
 
 // Default data type (provable_sdk padded to 32 bytes)
-export const DATA_TYPE = "provable_sdk" + "\u0000".repeat(20);
+export const DATA_TYPE = "provable_sdk\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000";
 
 export function getKayrosUrl(route: string): string {
   return KayrosHost + route;
@@ -32,24 +33,11 @@ export function getRecordUrl(hash: string, dataType?: string): string {
  * @param dataType - The data type to validate
  * @throws Error if data type exceeds 32 bytes
  */
-export function validateDataType(dataType: string): void {
-  const byteLength = new TextEncoder().encode(dataType).length;
-  if (byteLength > 32) {
-    throw new Error(`data_type must be at most 32 bytes, got ${byteLength} bytes`);
-  }
-}
-
 /**
  * Format data type for Kayros query params (pad to 32 bytes with nulls).
  */
 export function formatDataTypeForQuery(dataType: string): string {
-  const bytes = new TextEncoder().encode(dataType);
-  const trimmed = bytes.slice(0, 32);
-  let end = trimmed.length;
-  while (end > 0 && trimmed[end - 1] === 0) {
-    end -= 1;
-  }
-  return String.fromCharCode(...trimmed.slice(0, end));
+  return dataType;
 }
 
 /**

@@ -38,10 +38,6 @@ class TestProveSingleHash:
         args, kwargs = mock_post.call_args
         assert kwargs["json"]["data_type"] == custom_data_type
 
-    def test_throw_error_for_invalid_data_type_length(self):
-        with pytest.raises(ValueError, match="data_type must be at most 32 bytes"):
-            prove_single_hash("test_hash", data_type="x" * 33)
-
     def test_allow_non_hex_data_type(self):
         with patch("provable_sdk.api.requests.post") as mock_post:
             mock_response = Mock()

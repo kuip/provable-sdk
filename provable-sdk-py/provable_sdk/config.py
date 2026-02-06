@@ -3,6 +3,7 @@ Provable SDK Configuration
 """
 
 KAYROS_HOST = "https://kayros.provable.dev"
+# KAYROS_HOST = "http://localhost:3001"
 
 API_ROUTES = {
     "PROVE_SINGLE_HASH": "/api/lightnet/grpc/single-hash",
@@ -10,7 +11,7 @@ API_ROUTES = {
 }
 
 # Default data type (provable_sdk padded to 32 bytes)
-DATA_TYPE = "provable_sdk" + ("\x00" * 20)
+DATA_TYPE = "provable_sdk\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 
 
 def get_kayros_url(route: str) -> str:
@@ -34,30 +35,12 @@ def get_record_url(hash: str, data_type: str = DATA_TYPE) -> str:
     )
 
 
-def validate_data_type(data_type: str) -> None:
-    """
-    Validates that a data type is at most 32 bytes
-
-    Args:
-        data_type: The data type to validate
-
-    Raises:
-        ValueError: If data type exceeds 32 bytes
-    """
-    byte_length = len(data_type.encode("utf-8"))
-    if byte_length > 32:
-        raise ValueError(f"data_type must be at most 32 bytes, got {byte_length} bytes")
-
-
 def format_data_type_for_query(data_type: str) -> str:
     """
     Format data type for Kayros query params (pad to 32 bytes with nulls).
     """
-    from urllib.parse import quote_from_bytes
-
-    raw = data_type.encode("utf-8")
-    trimmed = raw[:32].rstrip(b"\x00")
-    return quote_from_bytes(trimmed)
+    from urllib.parse import quote
+    return quote(data_type, safe="")
 
 
 def format_hash_for_query(hash_value: str) -> str:

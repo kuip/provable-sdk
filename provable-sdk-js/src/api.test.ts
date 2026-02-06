@@ -66,12 +66,6 @@ describe('api', () => {
       );
     });
 
-    it('should throw error for invalid data_type length', async () => {
-      await expect(
-        prove_single_hash('test_hash', 'x'.repeat(33))
-      ).rejects.toThrow('data_type must be at most 32 bytes');
-    });
-
     it('should throw error when API returns error status', async () => {
       (global.fetch as any).mockResolvedValueOnce({
         ok: false,

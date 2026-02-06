@@ -20,9 +20,6 @@ func ProveSingleHash(dataHash string, dataType ...string) (*ProveSingleHashRespo
 	dt := DataType
 	if len(dataType) > 0 && dataType[0] != "" {
 		dt = dataType[0]
-		if err := ValidateDataType(dt); err != nil {
-			return nil, err
-		}
 	}
 
 	requestBody := map[string]string{
@@ -59,9 +56,6 @@ func GetRecordByHash(recordHash string, dataType ...string) (*GetRecordResponse,
 	dt := DataType
 	if len(dataType) > 0 && dataType[0] != "" {
 		dt = dataType[0]
-		if err := ValidateDataType(dt); err != nil {
-			return nil, err
-		}
 	}
 
 	padded := FormatDataTypeForQuery(dt)

@@ -2,7 +2,6 @@ package provable
 
 import (
 	"regexp"
-	"strings"
 	"testing"
 )
 
@@ -108,24 +107,6 @@ func TestProveDataStrHashing(t *testing.T) {
 
 		if hashFromStr != hashFromBytes {
 			t.Errorf("Hashes don't match: %v != %v", hashFromStr, hashFromBytes)
-		}
-	})
-}
-
-func TestDataTypePassthrough(t *testing.T) {
-	t.Run("validate custom data type would be checked", func(t *testing.T) {
-		customDataType := "provable_sdk"
-		err := ValidateDataType(customDataType)
-		if err != nil {
-			t.Errorf("Valid custom data type failed: %v", err)
-		}
-	})
-
-	t.Run("invalid custom data type would be rejected", func(t *testing.T) {
-		invalidDataType := strings.Repeat("x", 33)
-		err := ValidateDataType(invalidDataType)
-		if err == nil {
-			t.Error("Invalid data type should fail validation")
 		}
 	})
 }

@@ -9,7 +9,6 @@ from .config import (
     get_kayros_url,
     API_ROUTES,
     DATA_TYPE,
-    validate_data_type,
     format_data_type_for_query,
     format_hash_for_query,
 )
@@ -28,12 +27,9 @@ def prove_single_hash(data_hash: str, data_type: str = None) -> ProveSingleHashR
         The Kayros response
 
     Raises:
-        ValueError: If data_type is provided but not exactly 64 hex characters
         requests.HTTPError: If the API request fails
     """
     dt = data_type if data_type is not None else DATA_TYPE
-    if data_type is not None:
-        validate_data_type(data_type)
 
     url = get_kayros_url(API_ROUTES["PROVE_SINGLE_HASH"])
 
@@ -64,8 +60,6 @@ def get_record_by_hash(record_hash: str, data_type: str = None) -> GetRecordResp
         requests.HTTPError: If the API request fails
     """
     dt = data_type if data_type is not None else DATA_TYPE
-    if data_type is not None:
-        validate_data_type(data_type)
 
     url = get_kayros_url(
         f"{API_ROUTES['GET_RECORD_BY_HASH']}?hash={format_hash_for_query(record_hash)}"

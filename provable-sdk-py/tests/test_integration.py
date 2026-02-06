@@ -8,7 +8,6 @@ import base64
 import pytest
 from provable_sdk.hash import keccak256_str
 from provable_sdk.api import prove_single_hash, get_record_by_hash
-from provable_sdk.config import DATA_TYPE
 from provable_sdk.verify import verify
 from provable_sdk.types import KayrosEnvelope
 
@@ -17,6 +16,9 @@ class TestFullCycleIntegration:
     @pytest.mark.timeout(30)
     def test_full_cycle_data_to_verified_proof(self):
         """Test complete cycle: data -> hash -> index -> verify"""
+
+        test_data_type = "provable_sdk_tests"
+        test_data_type_hex = test_data_type.encode("utf-8").hex()
 
         # Step 1: Start with test data
         test_data = f"Integration test data {int(time.time() * 1000)}"
@@ -27,7 +29,7 @@ class TestFullCycleIntegration:
         assert all(c in "0123456789abcdef" for c in data_hash)
 
         # Step 3: Index with Kayros (prove the hash)
-        kayros_response = prove_single_hash(data_hash)
+        kayros_response = prove_single_hash(data_hash, test_data_type)
         assert kayros_response is not None
         assert "hash" in kayros_response
         assert len(kayros_response["hash"]) == 64
@@ -42,7 +44,10 @@ class TestFullCycleIntegration:
                 "hashAlgorithm": "keccak256",
                 "timestamp": {
                     "service": "kayros",
-                    "response": kayros_response,
+                    "response": {
+                        **kayros_response,
+                        "data": {"data_type_hex": test_data_type_hex},
+                    },
                 },
             },
         )
@@ -64,7 +69,7 @@ class TestFullCycleIntegration:
         assert verify_result["details"]["remoteHash"] == data_hash
 
         # Step 6: Verify we can retrieve the record by hash using the computed hash from Kayros
-        record = get_record_by_hash(computed_hash, DATA_TYPE)
+        record = get_record_by_hash(computed_hash, test_data_type)
         assert record is not None
         decoded = base64.b64decode(record["data_item"]).hex()
         assert decoded == data_hash

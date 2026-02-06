@@ -15,8 +15,24 @@ export interface VerificationState {
   hashMatch?: boolean;
   remoteMatch?: boolean;
   remoteRecord?: GetRecordResponse;
+  remoteDataItemHex?: string;
   recordUrl?: string;
   timestamp?: string;
+}
+
+function decodeBase64ToHex(value?: string): string | undefined {
+  if (!value) return undefined;
+  try {
+    const decoded = atob(value);
+    const bytes = new Uint8Array(decoded.length);
+    for (let i = 0; i < decoded.length; i += 1) {
+      bytes[i] = decoded.charCodeAt(i);
+    }
+    if (bytes.length !== 32) return undefined;
+    return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch {
+    return undefined;
+  }
 }
 
 async function fetchRecordWithRetry(hash: string, dataType?: string): Promise<GetRecordResponse> {
@@ -56,26 +72,27 @@ export function useKayrosVerification(envelope?: KayrosEnvelope): VerificationSt
         const computedHash = await normalized.computeDataHash();
         const hashMatch = computedHash === dataHash;
         const kayrosHash = normalized.getKayrosHash();
-        const dataType = normalized.getDataType() || undefined;
+        const dataType = normalized.getDataTypeLabel() || undefined;
 
         let recordUrl: string | undefined;
         let remoteRecord: GetRecordResponse | undefined;
         let remoteMatch: boolean | undefined;
         let remoteError: string | undefined;
         let timestamp: string | undefined;
+        let remoteDataItemHex: string | undefined;
 
         if (kayrosHash) {
           recordUrl = getRecordUrl(kayrosHash, dataType ?? undefined);
           try {
             remoteRecord = await fetchRecordWithRetry(kayrosHash, dataType);
 
-            const remoteDataItemHex = remoteRecord?.data?.data_item_hex ?? (remoteRecord as any)?.data_item_hex;
+            remoteDataItemHex = decodeBase64ToHex(remoteRecord?.data_item);
             if (remoteDataItemHex) {
               remoteMatch = computedHash === remoteDataItemHex;
             }
 
-            if (remoteRecord?.data?.timestamp) {
-              timestamp = remoteRecord.data.timestamp;
+            if (remoteRecord?.ts) {
+              timestamp = remoteRecord.ts;
             }
           } catch (err) {
             remoteError = `Failed to fetch remote record: ${err instanceof Error ? err.message : String(err)}`;
@@ -90,6 +107,7 @@ export function useKayrosVerification(envelope?: KayrosEnvelope): VerificationSt
             hashMatch,
             remoteMatch,
             remoteRecord,
+            remoteDataItemHex,
             remoteError,
             recordUrl,
             timestamp

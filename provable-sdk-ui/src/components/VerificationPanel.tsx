@@ -26,7 +26,7 @@ export function VerificationPanel({
     computedHash,
     dataHash,
     remoteMatch,
-    remoteRecord,
+    remoteDataItemHex,
     remoteError,
     recordUrl,
     timestamp
@@ -86,12 +86,12 @@ export function VerificationPanel({
               </>
             )}
 
-            {(remoteRecord?.data?.data_item_hex || (remoteRecord as any)?.data_item_hex) && (
+            {remoteDataItemHex && (
               <>
                 <div className="pv-label">Remote Data Item</div>
                 <div className="pv-value">
                   <div className="pv-hash">
-                    {remoteRecord?.data?.data_item_hex ?? (remoteRecord as any)?.data_item_hex}
+                    {remoteDataItemHex}
                   </div>
                 </div>
               </>

@@ -12,6 +12,7 @@ import (
 const (
 	// KayrosHost is the base URL for the Kayros API
 	KayrosHost = "https://kayros.provable.dev"
+	// KayrosHost = "http://localhost:3001"
 
 	// ProveSingleHashRoute is the API route for proving a single hash
 	ProveSingleHashRoute = "/api/lightnet/grpc/single-hash"
@@ -45,27 +46,9 @@ func GetRecordURL(hash string, dataType ...string) string {
 	)
 }
 
-// ValidateDataType validates that a data type is at most 32 bytes
-func ValidateDataType(dataType string) error {
-	if len([]byte(dataType)) > 32 {
-		return fmt.Errorf("data_type must be at most 32 bytes, got %d bytes", len([]byte(dataType)))
-	}
-	return nil
-}
-
-// FormatDataTypeForQuery trims trailing nulls for query params.
+// FormatDataTypeForQuery returns the data_type as-is for query params.
 func FormatDataTypeForQuery(dataType string) string {
-	b := make([]byte, 32)
-	data := []byte(dataType)
-	if len(data) > 32 {
-		data = data[:32]
-	}
-	copy(b, data)
-	end := len(b)
-	for end > 0 && b[end-1] == 0 {
-		end--
-	}
-	return string(b[:end])
+	return dataType
 }
 
 var hex64Pattern = regexp.MustCompile("^[0-9a-fA-F]{64}$")
