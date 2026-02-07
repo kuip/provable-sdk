@@ -12,6 +12,9 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
+    "./esm": {
+      "import": "./dist/index.js"
+    },
     "./browser": {
       "import": "./dist/browser/provable-sdk-ui.iife.js"
     },

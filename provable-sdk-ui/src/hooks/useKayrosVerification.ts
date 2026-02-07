@@ -35,6 +35,46 @@ function decodeBase64ToHex(value?: string): string | undefined {
   }
 }
 
+function resolveTimestampResponse(envelope: KayrosEnvelope): any {
+  return (envelope as any)?.kayros?.timestamp?.response;
+}
+
+function resolveRegisterResponse(envelope: KayrosEnvelope): any {
+  const response = resolveTimestampResponse(envelope);
+  return response?.response ?? response;
+}
+
+function resolveKayrosHash(envelope: KayrosEnvelope): string | undefined {
+  const fromEnvelope = envelope.getKayrosHash();
+  if (fromEnvelope) {
+    return fromEnvelope;
+  }
+
+  const registerResponse = resolveRegisterResponse(envelope);
+  return registerResponse?.hash
+    || registerResponse?.data?.computed_hash_hex
+    || registerResponse?.computed_hash_hex
+    || registerResponse?.data?.hash
+    || registerResponse?.data?.computed_hash
+    || registerResponse?.computed_hash
+    || undefined;
+}
+
+function resolveDataType(envelope: KayrosEnvelope): string | undefined {
+  const fromEnvelope = envelope.getDataTypeLabel();
+  if (fromEnvelope) {
+    return fromEnvelope;
+  }
+
+  const registerResponse = resolveRegisterResponse(envelope);
+  const timestampResponse = resolveTimestampResponse(envelope);
+
+  return registerResponse?.data_type
+    || registerResponse?.data?.data_type
+    || timestampResponse?.data?.data_type
+    || undefined;
+}
+
 async function fetchRecordWithRetry(hash: string, dataType?: string): Promise<GetRecordResponse> {
   try {
     return await get_record_by_hash(hash, dataType);
@@ -71,8 +111,8 @@ export function useKayrosVerification(envelope?: KayrosEnvelope): VerificationSt
 
         const computedHash = await normalized.computeDataHash();
         const hashMatch = computedHash === dataHash;
-        const kayrosHash = normalized.getKayrosHash();
-        const dataType = normalized.getDataTypeLabel() || undefined;
+        const kayrosHash = resolveKayrosHash(normalized);
+        const dataType = resolveDataType(normalized);
 
         let recordUrl: string | undefined;
         let remoteRecord: GetRecordResponse | undefined;
