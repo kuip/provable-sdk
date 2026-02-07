@@ -104,11 +104,18 @@ export class KayrosEnvelope<T = unknown> {
     // V1 with timestamp response
     if ('timestamp' in m && m.timestamp?.response) {
       const response = m.timestamp.response as any;
+      const registerResponse = response?.response ?? response;
       if (response.data?.computed_hash_hex) {
         return response.data.computed_hash_hex;
       }
-      if (response.hash) {
-        return response.hash;
+      if (registerResponse?.data?.computed_hash_hex) {
+        return registerResponse.data.computed_hash_hex;
+      }
+      if (registerResponse?.computed_hash_hex) {
+        return registerResponse.computed_hash_hex;
+      }
+      if (registerResponse?.hash) {
+        return registerResponse.hash;
       }
     }
     return undefined;
@@ -126,11 +133,24 @@ export class KayrosEnvelope<T = unknown> {
     // V1 with timestamp response
     if ('timestamp' in m && m.timestamp?.response) {
       const response = m.timestamp.response as any;
+      const registerResponse = response?.response ?? response;
+      if (registerResponse?.data?.timeuuid_hex) {
+        return registerResponse.data.timeuuid_hex;
+      }
+      if (registerResponse?.timeuuid_hex) {
+        return registerResponse.timeuuid_hex;
+      }
+      if (registerResponse?.data?.timeuuid) {
+        return registerResponse.data.timeuuid;
+      }
+      if (registerResponse?.timeuuid) {
+        return registerResponse.timeuuid;
+      }
       if (response.data?.timeuuid_hex) {
         return response.data.timeuuid_hex;
       }
-      if (response.timeuuid) {
-        return response.timeuuid;
+      if (response.data?.timeuuid) {
+        return response.data.timeuuid;
       }
     }
     return undefined;
@@ -218,9 +238,13 @@ export interface VerifyResult {
   details?: {
     hashMatch?: boolean;
     remoteMatch?: boolean;
+    timestampMatch?: boolean;
     computedHash?: string;
     dataHash?: string;
     remoteHash?: string;
+    proofTimeuuid?: string;
+    remoteTimeuuid?: string;
+    remoteRecord?: GetRecordResponse;
   };
 }
 

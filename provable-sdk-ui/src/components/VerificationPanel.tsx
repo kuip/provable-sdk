@@ -26,10 +26,14 @@ export function VerificationPanel({
     computedHash,
     dataHash,
     remoteMatch,
+    timestampMatch,
+    proofTimeuuid,
+    remoteTimeuuid,
     remoteDataItemHex,
     remoteError,
     recordUrl,
-    timestamp
+    timestamp,
+    timestampLocal
   } = resolvedVerification;
 
   const dataHashLabel = normalized?.isV0() ? 'Envelope Hash (V0)' : 'Envelope Hash';
@@ -86,6 +90,33 @@ export function VerificationPanel({
               </>
             )}
 
+            {timestampMatch !== undefined && (
+              <>
+                <div className="pv-label">Remote Timestamp</div>
+                <div className={`pv-value pv-status ${timestampMatch ? 'match' : 'mismatch'}`}>
+                  {timestampMatch ? 'Timestamp matches remote record' : 'Timestamp does not match remote record'}
+                </div>
+              </>
+            )}
+
+            {timestampMatch === false && proofTimeuuid && (
+              <>
+                <div className="pv-label">Proof TimeUUID</div>
+                <div className="pv-value">
+                  <div className="pv-hash">{proofTimeuuid}</div>
+                </div>
+              </>
+            )}
+
+            {timestampMatch === false && remoteTimeuuid && (
+              <>
+                <div className="pv-label">Remote TimeUUID</div>
+                <div className="pv-value">
+                  <div className="pv-hash">{remoteTimeuuid}</div>
+                </div>
+              </>
+            )}
+
             {remoteDataItemHex && (
               <>
                 <div className="pv-label">Remote Data Item</div>
@@ -100,7 +131,12 @@ export function VerificationPanel({
             {timestamp && (
               <>
                 <div className="pv-label">Timestamp</div>
-                <div className="pv-value">{timestamp}</div>
+                <div className="pv-value">
+                  <div className="pv-hash">{timestamp}</div>
+                  {timestampLocal && (
+                    <div className="pv-subtle">Local time: {timestampLocal}</div>
+                  )}
+                </div>
               </>
             )}
           </div>

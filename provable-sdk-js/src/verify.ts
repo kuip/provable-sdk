@@ -34,6 +34,44 @@ function normalizeRemoteDataItemHex(value: string): string | undefined {
   return undefined;
 }
 
+function normalizeUuid(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  const compact = normalized.replace(/-/g, '');
+  if (/^[0-9a-f]{32}$/.test(compact)) {
+    return compact;
+  }
+  return undefined;
+}
+
+function resolveTimestampResponse<T>(envelope: KayrosEnvelope<T>): any {
+  return (envelope as any)?.kayros?.timestamp?.response;
+}
+
+function resolveRegisterResponse<T>(envelope: KayrosEnvelope<T>): any {
+  const response = resolveTimestampResponse(envelope);
+  return response?.response ?? response;
+}
+
+function resolveDataTypeForLookup<T>(envelope: KayrosEnvelope<T>): string | undefined {
+  const timestampResponse = resolveTimestampResponse(envelope);
+  const registerResponse = resolveRegisterResponse(envelope);
+
+  // Keep raw value first (including any null-byte padding) for exact Kayros lookup.
+  const rawDataType = timestampResponse?.data?.data_type
+    || registerResponse?.data?.data_type
+    || registerResponse?.data_type;
+
+  if (typeof rawDataType === 'string' && rawDataType.length > 0) {
+    return rawDataType;
+  }
+
+  return envelope.getDataTypeLabel() || undefined;
+}
+
 /**
  * Verify data against a Kayros proof
  * @param envelope - Object containing data and kayros metadata
@@ -51,6 +89,8 @@ export async function verify<T = unknown>(envelope: KayrosEnvelope<T>): Promise<
     }
 
     const computedHash = await envelope.computeDataHash();
+    const proofTimeuuidRaw = envelope.getTimeUUID();
+    const proofTimeuuid = normalizeUuid(proofTimeuuidRaw);
 
     // Check if hashes match
     const hashMatch = computedHash === dataHash;
@@ -69,7 +109,7 @@ export async function verify<T = unknown>(envelope: KayrosEnvelope<T>): Promise<
 
     // If there's a Kayros hash, verify against remote record
     const kayrosHash = envelope.getKayrosHash();
-    const dataType = envelope.getDataTypeLabel() || undefined;
+    const dataType = resolveDataTypeForLookup(envelope);
     if (kayrosHash) {
 
       try {
@@ -101,13 +141,19 @@ export async function verify<T = unknown>(envelope: KayrosEnvelope<T>): Promise<
               hashMatch: true,
               computedHash,
               dataHash,
+              proofTimeuuid,
+              remoteRecord,
             },
           };
         }
 
-        const remoteMatch = computedHash === remoteDataItemHex;
+        const remoteHashMatch = computedHash === remoteDataItemHex;
+        const remoteTimeuuidRaw = remoteRecord.ts;
+        const remoteTimeuuid = normalizeUuid(remoteTimeuuidRaw);
+        const timestampMatch = proofTimeuuid ? proofTimeuuid === remoteTimeuuid : undefined;
+        const remoteMatch = remoteHashMatch && (timestampMatch ?? true);
 
-        if (!remoteMatch) {
+        if (!remoteHashMatch) {
           return {
             valid: false,
             error: 'Remote verification failed: hash does not match remote record',
@@ -117,6 +163,28 @@ export async function verify<T = unknown>(envelope: KayrosEnvelope<T>): Promise<
               computedHash,
               dataHash,
               remoteHash: remoteDataItemHex,
+              proofTimeuuid: proofTimeuuidRaw,
+              remoteTimeuuid: remoteTimeuuidRaw,
+              timestampMatch,
+              remoteRecord,
+            },
+          };
+        }
+
+        if (proofTimeuuid && !timestampMatch) {
+          return {
+            valid: false,
+            error: `Remote verification failed: timestamp mismatch between proof and remote record (proof: ${proofTimeuuidRaw}, remote: ${remoteTimeuuidRaw})`,
+            details: {
+              hashMatch: true,
+              remoteMatch: false,
+              computedHash,
+              dataHash,
+              remoteHash: remoteDataItemHex,
+              proofTimeuuid: proofTimeuuidRaw,
+              remoteTimeuuid: remoteTimeuuidRaw,
+              timestampMatch: false,
+              remoteRecord,
             },
           };
         }
@@ -129,6 +197,10 @@ export async function verify<T = unknown>(envelope: KayrosEnvelope<T>): Promise<
             computedHash,
             dataHash,
             remoteHash: remoteDataItemHex,
+            proofTimeuuid: proofTimeuuidRaw,
+            remoteTimeuuid: remoteTimeuuidRaw,
+            timestampMatch,
+            remoteRecord,
           },
         };
       } catch (error) {
@@ -139,6 +211,7 @@ export async function verify<T = unknown>(envelope: KayrosEnvelope<T>): Promise<
             hashMatch: true,
             computedHash,
             dataHash,
+            proofTimeuuid: proofTimeuuidRaw,
           },
         };
       }
@@ -151,6 +224,7 @@ export async function verify<T = unknown>(envelope: KayrosEnvelope<T>): Promise<
         hashMatch: true,
         computedHash,
         dataHash,
+        proofTimeuuid: proofTimeuuidRaw,
       },
     };
   } catch (error) {
