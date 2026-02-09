@@ -50,7 +50,16 @@ from .types import (
     # API Response wrapper
     APIResponse,
 )
-from .config import KAYROS_HOST, API_ROUTES, DATA_TYPE, get_kayros_url, get_record_url
+from .config import (
+    KAYROS_HOST,
+    API_ROUTES,
+    DATA_TYPE,
+    DEFAULT_USER_KEY,
+    get_kayros_url,
+    get_record_url,
+    set_user_key,
+    get_user_key,
+)
 
 __version__ = "0.1.0"
 
@@ -107,6 +116,9 @@ __all__ = [
     "KAYROS_HOST",
     "API_ROUTES",
     "DATA_TYPE",
+    "DEFAULT_USER_KEY",
     "get_kayros_url",
     "get_record_url",
+    "set_user_key",
+    "get_user_key",
 ]

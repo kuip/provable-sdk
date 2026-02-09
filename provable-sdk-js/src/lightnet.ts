@@ -2,7 +2,7 @@
  * Lightnet API client - Database, Hash, and Merkle operations
  */
 
-import { API_ROUTES, getKayrosUrl } from './config';
+import { API_ROUTES, getKayrosUrl, getDefaultHeaders } from './config';
 import type {
   APIResponse,
   DatabaseQuery,
@@ -34,7 +34,7 @@ export async function query_hashes(query: DatabaseQuery): Promise<APIResponse<Ha
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getDefaultHeaders(),
     body: JSON.stringify(query),
   });
 
@@ -54,7 +54,7 @@ export async function get_database_stats(): Promise<APIResponse<DatabaseStats>> 
 
   const response = await fetch(url, {
     method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getDefaultHeaders(),
   });
 
   if (!response.ok) {
@@ -74,7 +74,7 @@ export async function get_latest_hashes(limit: number = 50): Promise<APIResponse
 
   const response = await fetch(url, {
     method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getDefaultHeaders(),
   });
 
   if (!response.ok) {
@@ -93,7 +93,7 @@ export async function get_tables(): Promise<APIResponse<string[]>> {
 
   const response = await fetch(url, {
     method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getDefaultHeaders(),
   });
 
   if (!response.ok) {
@@ -113,7 +113,7 @@ export async function get_table_schema(tableName: string): Promise<APIResponse<C
 
   const response = await fetch(url, {
     method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getDefaultHeaders(),
   });
 
   if (!response.ok) {
@@ -133,7 +133,7 @@ export async function browse_table(request: TableBrowseRequest): Promise<APIResp
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getDefaultHeaders(),
     body: JSON.stringify(request),
   });
 
@@ -154,7 +154,7 @@ export async function get_record(uuid: string): Promise<APIResponse<DatabaseReco
 
   const response = await fetch(url, {
     method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getDefaultHeaders(),
   });
 
   if (!response.ok) {
@@ -174,7 +174,7 @@ export async function get_record_with_prev_hash(uuid: string): Promise<APIRespon
 
   const response = await fetch(url, {
     method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getDefaultHeaders(),
   });
 
   if (!response.ok) {
@@ -196,7 +196,7 @@ export async function verify_hash(request: HashVerifyRequest): Promise<APIRespon
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getDefaultHeaders(),
     body: JSON.stringify(request),
   });
 
@@ -217,7 +217,7 @@ export async function compute_hash_from_hex(request: ComputeHashRequest): Promis
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getDefaultHeaders(),
     body: JSON.stringify(request),
   });
 
@@ -240,7 +240,7 @@ export async function send_single_grpc_request(request: SingleHashRequest): Prom
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getDefaultHeaders(),
     body: JSON.stringify(request),
   });
 
@@ -263,7 +263,7 @@ export async function generate_merkle_proof(request: GenerateMerkleProofRequest)
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getDefaultHeaders(),
     body: JSON.stringify(request),
   });
 
@@ -284,7 +284,7 @@ export async function verify_merkle_proof(request: VerifyMerkleProofRequest): Pr
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getDefaultHeaders(),
     body: JSON.stringify(request),
   });
 

@@ -39,3 +39,21 @@ func TestDataTypeConstant(t *testing.T) {
 		}
 	})
 }
+
+func TestUserKeyConfig(t *testing.T) {
+	t.Run("default user key is set", func(t *testing.T) {
+		SetUserKey(DefaultUserKey)
+		if GetUserKey() != DefaultUserKey {
+			t.Errorf("GetUserKey() = %v, want %v", GetUserKey(), DefaultUserKey)
+		}
+	})
+
+	t.Run("set custom user key", func(t *testing.T) {
+		customKey := "0xabc123"
+		SetUserKey(customKey)
+		if GetUserKey() != customKey {
+			t.Errorf("GetUserKey() = %v, want %v", GetUserKey(), customKey)
+		}
+		SetUserKey(DefaultUserKey)
+	})
+}

@@ -12,7 +12,6 @@ import (
 const (
 	// KayrosHost is the base URL for the Kayros API
 	KayrosHost = "https://kayros.provable.dev"
-	// KayrosHost = "http://localhost:3001"
 
 	// ProveSingleHashRoute is the API route for proving a single hash
 	ProveSingleHashRoute = "/api/lightnet/grpc/single-hash"
@@ -22,7 +21,12 @@ const (
 
 	// DataType is the default data type label for Kayros API
 	DataType = "provable_sdk\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+
+	// DefaultUserKey is the default user key used for X-User-Key header
+	DefaultUserKey = "0x0000000000000000000000000000000000000000000000000000000000000001"
 )
+
+var userKey = DefaultUserKey
 
 // GetKayrosURL builds a full Kayros API URL from a route
 func GetKayrosURL(route string) string {
@@ -49,6 +53,16 @@ func GetRecordURL(hash string, dataType ...string) string {
 // FormatDataTypeForQuery returns the data_type as-is for query params.
 func FormatDataTypeForQuery(dataType string) string {
 	return dataType
+}
+
+// SetUserKey sets user key used in X-User-Key header.
+func SetUserKey(key string) {
+	userKey = key
+}
+
+// GetUserKey returns current user key used in X-User-Key header.
+func GetUserKey() string {
+	return userKey
 }
 
 var hex64Pattern = regexp.MustCompile("^[0-9a-fA-F]{64}$")

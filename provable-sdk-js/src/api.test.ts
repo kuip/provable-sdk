@@ -4,7 +4,14 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { prove_single_hash, get_record_by_hash } from './api';
-import { getKayrosUrl, API_ROUTES, DATA_TYPE, formatDataTypeForQuery, getRecordUrl } from './config';
+import {
+  getKayrosUrl,
+  API_ROUTES,
+  DATA_TYPE,
+  getRecordUrl,
+  DEFAULT_USER_KEY,
+  setUserKey,
+} from './config';
 
 // Mock fetch globally
 global.fetch = vi.fn();
@@ -12,6 +19,7 @@ global.fetch = vi.fn();
 describe('api', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    setUserKey(DEFAULT_USER_KEY);
   });
 
   describe('prove_single_hash', () => {
@@ -32,6 +40,9 @@ describe('api', () => {
         getKayrosUrl(API_ROUTES.PROVE_SINGLE_HASH),
         expect.objectContaining({
           method: 'POST',
+          headers: expect.objectContaining({
+            'X-User-Key': DEFAULT_USER_KEY,
+          }),
           body: JSON.stringify({
             data_item: 'test_hash',
             data_type: DATA_TYPE,
@@ -110,6 +121,9 @@ describe('api', () => {
         expectedUrl,
         expect.objectContaining({
           method: 'GET',
+          headers: expect.objectContaining({
+            'X-User-Key': DEFAULT_USER_KEY,
+          }),
         })
       );
       expect(result).toEqual(mockResponse);

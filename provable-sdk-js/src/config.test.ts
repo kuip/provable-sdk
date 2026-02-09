@@ -3,7 +3,14 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { getKayrosUrl, DATA_TYPE, KayrosHost } from './config';
+import {
+  getKayrosUrl,
+  DATA_TYPE,
+  KayrosHost,
+  DEFAULT_USER_KEY,
+  getUserKey,
+  setUserKey,
+} from './config';
 
 describe('config', () => {
   describe('getKayrosUrl', () => {
@@ -21,6 +28,20 @@ describe('config', () => {
     it('should be padded to 32 bytes', () => {
       expect(new TextEncoder().encode(DATA_TYPE)).toHaveLength(32);
       expect(DATA_TYPE.replace(/\0/g, '')).toBe('provable_sdk');
+    });
+  });
+
+  describe('user key config', () => {
+    it('should default to the expected key', () => {
+      setUserKey(DEFAULT_USER_KEY);
+      expect(getUserKey()).toBe(DEFAULT_USER_KEY);
+    });
+
+    it('should allow setting a custom key', () => {
+      const customKey = '0xabc123';
+      setUserKey(customKey);
+      expect(getUserKey()).toBe(customKey);
+      setUserKey(DEFAULT_USER_KEY);
     });
   });
 });

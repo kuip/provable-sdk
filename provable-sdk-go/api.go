@@ -1,7 +1,6 @@
 package provable
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -32,7 +31,7 @@ func ProveSingleHash(dataHash string, dataType ...string) (*ProveSingleHashRespo
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	resp, err := doJSONPost(url, jsonData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
@@ -72,7 +71,7 @@ func GetRecordByHash(recordHash string, dataType ...string) (*GetRecordResponse,
 	var resp *http.Response
 	var err error
 	for attempt := 0; attempt < 3; attempt++ {
-		resp, err = http.Get(url)
+		resp, err = doJSONGet(url)
 		if err != nil {
 			return nil, fmt.Errorf("failed to make request: %w", err)
 		}

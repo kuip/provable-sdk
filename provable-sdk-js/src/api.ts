@@ -2,7 +2,7 @@
  * Kayros API client
  */
 
-import { getKayrosUrl, API_ROUTES, DATA_TYPE, formatDataTypeForQuery, formatHashForQuery } from './config';
+import { getKayrosUrl, API_ROUTES, DATA_TYPE, formatDataTypeForQuery, formatHashForQuery, getDefaultHeaders } from './config';
 import type { ProveSingleHashResponse, GetRecordResponse } from './types';
 
 /**
@@ -18,9 +18,7 @@ export async function prove_single_hash(dataHash: string, dataType?: string): Pr
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: getDefaultHeaders(),
     body: JSON.stringify({
       data_item: dataHash,
       data_type: dt,
@@ -47,9 +45,7 @@ export async function get_record_by_hash(recordHash: string, dataType?: string):
 
   const response = await fetch(url, {
     method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: getDefaultHeaders(),
   });
 
   if (!response.ok) {

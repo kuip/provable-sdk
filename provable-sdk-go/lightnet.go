@@ -1,7 +1,6 @@
 package provable
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -158,7 +157,7 @@ func QueryHashes(query DatabaseQuery) (*APIResponse, error) {
 		return nil, fmt.Errorf("failed to marshal query: %w", err)
 	}
 
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	resp, err := doJSONPost(url, jsonData)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -181,7 +180,7 @@ func QueryHashes(query DatabaseQuery) (*APIResponse, error) {
 func GetDatabaseStats() (*APIResponse, error) {
 	url := GetKayrosURL("/api/database/stats")
 
-	resp, err := http.Get(url)
+	resp, err := doJSONGet(url)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -204,7 +203,7 @@ func GetDatabaseStats() (*APIResponse, error) {
 func GetLatestHashes(limit int) (*APIResponse, error) {
 	url := GetKayrosURL(fmt.Sprintf("/api/database/latest?limit=%d", limit))
 
-	resp, err := http.Get(url)
+	resp, err := doJSONGet(url)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -227,7 +226,7 @@ func GetLatestHashes(limit int) (*APIResponse, error) {
 func GetTables() (*APIResponse, error) {
 	url := GetKayrosURL("/api/database/tables")
 
-	resp, err := http.Get(url)
+	resp, err := doJSONGet(url)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -250,7 +249,7 @@ func GetTables() (*APIResponse, error) {
 func GetTableSchema(tableName string) (*APIResponse, error) {
 	url := GetKayrosURL(fmt.Sprintf("/api/database/schema?table=%s", url.QueryEscape(tableName)))
 
-	resp, err := http.Get(url)
+	resp, err := doJSONGet(url)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -278,7 +277,7 @@ func BrowseTable(request TableBrowseRequest) (*APIResponse, error) {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	resp, err := doJSONPost(url, jsonData)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -301,7 +300,7 @@ func BrowseTable(request TableBrowseRequest) (*APIResponse, error) {
 func GetRecord(uuid string) (*APIResponse, error) {
 	url := GetKayrosURL(fmt.Sprintf("/api/database/record?uuid=%s", url.QueryEscape(uuid)))
 
-	resp, err := http.Get(url)
+	resp, err := doJSONGet(url)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -324,7 +323,7 @@ func GetRecord(uuid string) (*APIResponse, error) {
 func GetRecordWithPrevHash(uuid string) (*APIResponse, error) {
 	url := GetKayrosURL(fmt.Sprintf("/api/database/record-with-prev?uuid=%s", url.QueryEscape(uuid)))
 
-	resp, err := http.Get(url)
+	resp, err := doJSONGet(url)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -354,7 +353,7 @@ func VerifyHash(request HashVerifyRequest) (*APIResponse, error) {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	resp, err := doJSONPost(url, jsonData)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -382,7 +381,7 @@ func ComputeHashFromHex(request ComputeHashRequest) (*APIResponse, error) {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	resp, err := doJSONPost(url, jsonData)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -412,7 +411,7 @@ func SendSingleGRPCRequest(request SingleHashRequest) (*APIResponse, error) {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	resp, err := doJSONPost(url, jsonData)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -442,7 +441,7 @@ func GenerateMerkleProof(request GenerateMerkleProofRequest) (*APIResponse, erro
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	resp, err := doJSONPost(url, jsonData)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -470,7 +469,7 @@ func VerifyMerkleProof(request VerifyMerkleProofRequest) (*APIResponse, error) {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	resp, err := doJSONPost(url, jsonData)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}

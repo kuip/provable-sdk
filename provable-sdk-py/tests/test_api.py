@@ -5,12 +5,19 @@ Tests for API module
 import pytest
 from unittest.mock import Mock, patch
 from provable_sdk.api import prove_single_hash, get_record_by_hash
-from provable_sdk.config import get_kayros_url, API_ROUTES, DATA_TYPE
+from provable_sdk.config import (
+    get_kayros_url,
+    API_ROUTES,
+    DATA_TYPE,
+    DEFAULT_USER_KEY,
+    set_user_key,
+)
 
 
 class TestProveSingleHash:
     @patch("provable_sdk.api.requests.post")
     def test_call_api_with_default_data_type(self, mock_post):
+        set_user_key(DEFAULT_USER_KEY)
         mock_response = Mock()
         mock_response.json.return_value = {"success": True, "hash": "abc123"}
         mock_response.raise_for_status = Mock()
@@ -23,10 +30,12 @@ class TestProveSingleHash:
         assert get_kayros_url(API_ROUTES["PROVE_SINGLE_HASH"]) in args
         assert kwargs["json"]["data_item"] == "test_hash"
         assert kwargs["json"]["data_type"] == DATA_TYPE
+        assert kwargs["headers"]["X-User-Key"] == DEFAULT_USER_KEY
         assert result == {"success": True, "hash": "abc123"}
 
     @patch("provable_sdk.api.requests.post")
     def test_call_api_with_custom_data_type(self, mock_post):
+        set_user_key(DEFAULT_USER_KEY)
         custom_data_type = "provable_forms"
         mock_response = Mock()
         mock_response.json.return_value = {"success": True, "hash": "def456"}
@@ -39,6 +48,7 @@ class TestProveSingleHash:
         assert kwargs["json"]["data_type"] == custom_data_type
 
     def test_allow_non_hex_data_type(self):
+        set_user_key(DEFAULT_USER_KEY)
         with patch("provable_sdk.api.requests.post") as mock_post:
             mock_response = Mock()
             mock_response.json.return_value = {"success": True, "hash": "abc123"}
@@ -49,6 +59,7 @@ class TestProveSingleHash:
 
     @patch("provable_sdk.api.requests.post")
     def test_raise_error_when_api_returns_error_status(self, mock_post):
+        set_user_key(DEFAULT_USER_KEY)
         mock_response = Mock()
         mock_response.raise_for_status.side_effect = Exception("API error: 500")
         mock_post.return_value = mock_response
@@ -60,6 +71,7 @@ class TestProveSingleHash:
 class TestGetRecordByHash:
     @patch("provable_sdk.api.requests.get")
     def test_call_api_with_correct_url(self, mock_get):
+        set_user_key(DEFAULT_USER_KEY)
         mock_response = Mock()
         mock_response.json.return_value = {
             "data_item": "abc123",
@@ -76,11 +88,13 @@ class TestGetRecordByHash:
 
         mock_get.assert_called_once()
         args = mock_get.call_args[0]
+        kwargs = mock_get.call_args[1]
         assert "record-by-hash" in args[0]
         assert "record-by-hash" in args[0]
         assert "record_hash_123" in args[0]
         assert "data_type" in args[0]
         assert "provable_sdk" in args[0]
+        assert kwargs["headers"]["X-User-Key"] == DEFAULT_USER_KEY
         assert result == {
             "data_item": "abc123",
             "data_type": "provable_sdk",
@@ -92,6 +106,7 @@ class TestGetRecordByHash:
 
     @patch("provable_sdk.api.requests.get")
     def test_raise_error_when_api_returns_error_status(self, mock_get):
+        set_user_key(DEFAULT_USER_KEY)
         mock_response = Mock()
         mock_response.raise_for_status.side_effect = Exception("API error: 404")
         mock_get.return_value = mock_response

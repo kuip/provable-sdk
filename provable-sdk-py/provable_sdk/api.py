@@ -11,6 +11,7 @@ from .config import (
     DATA_TYPE,
     format_data_type_for_query,
     format_hash_for_query,
+    get_default_headers,
 )
 from .types import ProveSingleHashResponse, GetRecordResponse
 
@@ -39,7 +40,7 @@ def prove_single_hash(data_hash: str, data_type: str = None) -> ProveSingleHashR
             "data_item": data_hash,
             "data_type": dt,
         },
-        headers={"Content-Type": "application/json"},
+        headers=get_default_headers(),
     )
 
     response.raise_for_status()
@@ -68,7 +69,7 @@ def get_record_by_hash(record_hash: str, data_type: str = None) -> GetRecordResp
 
     response = requests.get(
         url,
-        headers={"Content-Type": "application/json"},
+        headers=get_default_headers(),
     )
 
     response.raise_for_status()

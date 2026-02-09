@@ -3,7 +3,6 @@
  */
 
 export const KayrosHost = "https://kayros.provable.dev";
-// export const KayrosHost = "http://localhost:3001"
 
 export const API_ROUTES = {
   PROVE_SINGLE_HASH: "/api/lightnet/grpc/single-hash",
@@ -12,9 +11,27 @@ export const API_ROUTES = {
 
 // Default data type (provable_sdk padded to 32 bytes)
 export const DATA_TYPE = "provable_sdk\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000";
+export const DEFAULT_USER_KEY = "0x0000000000000000000000000000000000000000000000000000000000000001";
+
+let userKey = DEFAULT_USER_KEY;
 
 export function getKayrosUrl(route: string): string {
   return KayrosHost + route;
+}
+
+export function setUserKey(key: string): void {
+  userKey = key;
+}
+
+export function getUserKey(): string {
+  return userKey;
+}
+
+export function getDefaultHeaders(): Record<string, string> {
+  return {
+    'Content-Type': 'application/json',
+    'X-User-Key': getUserKey(),
+  };
 }
 
 /**

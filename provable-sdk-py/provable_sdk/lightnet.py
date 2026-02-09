@@ -6,7 +6,7 @@ import requests
 from typing import Any, Dict, List
 from urllib.parse import urlencode
 
-from .config import get_kayros_url, API_ROUTES
+from .config import get_kayros_url, API_ROUTES, get_default_headers
 from .types import (
     APIResponse,
     DatabaseQuery,
@@ -43,7 +43,7 @@ def query_hashes(query: DatabaseQuery) -> APIResponse:
         requests.HTTPError: If the API request fails
     """
     url = get_kayros_url('/api/database/query')
-    response = requests.post(url, json=query, headers={'Content-Type': 'application/json'})
+    response = requests.post(url, json=query, headers=get_default_headers())
     response.raise_for_status()
     return response.json()
 
@@ -59,7 +59,7 @@ def get_database_stats() -> APIResponse:
         requests.HTTPError: If the API request fails
     """
     url = get_kayros_url('/api/database/stats')
-    response = requests.get(url, headers={'Content-Type': 'application/json'})
+    response = requests.get(url, headers=get_default_headers())
     response.raise_for_status()
     return response.json()
 
@@ -78,7 +78,7 @@ def get_latest_hashes(limit: int = 50) -> APIResponse:
         requests.HTTPError: If the API request fails
     """
     url = get_kayros_url(f'/api/database/latest?limit={limit}')
-    response = requests.get(url, headers={'Content-Type': 'application/json'})
+    response = requests.get(url, headers=get_default_headers())
     response.raise_for_status()
     return response.json()
 
@@ -94,7 +94,7 @@ def get_tables() -> APIResponse:
         requests.HTTPError: If the API request fails
     """
     url = get_kayros_url('/api/database/tables')
-    response = requests.get(url, headers={'Content-Type': 'application/json'})
+    response = requests.get(url, headers=get_default_headers())
     response.raise_for_status()
     return response.json()
 
@@ -113,7 +113,7 @@ def get_table_schema(table_name: str) -> APIResponse:
         requests.HTTPError: If the API request fails
     """
     url = get_kayros_url(f'/api/database/schema?table={requests.utils.quote(table_name)}')
-    response = requests.get(url, headers={'Content-Type': 'application/json'})
+    response = requests.get(url, headers=get_default_headers())
     response.raise_for_status()
     return response.json()
 
@@ -132,7 +132,7 @@ def browse_table(request: TableBrowseRequest) -> APIResponse:
         requests.HTTPError: If the API request fails
     """
     url = get_kayros_url('/api/database/browse')
-    response = requests.post(url, json=request, headers={'Content-Type': 'application/json'})
+    response = requests.post(url, json=request, headers=get_default_headers())
     response.raise_for_status()
     return response.json()
 
@@ -151,7 +151,7 @@ def get_record(uuid: str) -> APIResponse:
         requests.HTTPError: If the API request fails
     """
     url = get_kayros_url(f'/api/database/record?uuid={requests.utils.quote(uuid)}')
-    response = requests.get(url, headers={'Content-Type': 'application/json'})
+    response = requests.get(url, headers=get_default_headers())
     response.raise_for_status()
     return response.json()
 
@@ -170,7 +170,7 @@ def get_record_with_prev_hash(uuid: str) -> APIResponse:
         requests.HTTPError: If the API request fails
     """
     url = get_kayros_url(f'/api/database/record-with-prev?uuid={requests.utils.quote(uuid)}')
-    response = requests.get(url, headers={'Content-Type': 'application/json'})
+    response = requests.get(url, headers=get_default_headers())
     response.raise_for_status()
     return response.json()
 
@@ -191,7 +191,7 @@ def verify_hash(request: HashVerifyRequest) -> APIResponse:
         requests.HTTPError: If the API request fails
     """
     url = get_kayros_url('/api/verify-hash')
-    response = requests.post(url, json=request, headers={'Content-Type': 'application/json'})
+    response = requests.post(url, json=request, headers=get_default_headers())
     response.raise_for_status()
     return response.json()
 
@@ -210,7 +210,7 @@ def compute_hash_from_hex(request: ComputeHashRequest) -> APIResponse:
         requests.HTTPError: If the API request fails
     """
     url = get_kayros_url('/api/compute-hash-from-hex')
-    response = requests.post(url, json=request, headers={'Content-Type': 'application/json'})
+    response = requests.post(url, json=request, headers=get_default_headers())
     response.raise_for_status()
     return response.json()
 
@@ -231,7 +231,7 @@ def send_single_grpc_request(request: SingleHashRequest) -> APIResponse:
         requests.HTTPError: If the API request fails
     """
     url = get_kayros_url(API_ROUTES["PROVE_SINGLE_HASH"])
-    response = requests.post(url, json=request, headers={'Content-Type': 'application/json'})
+    response = requests.post(url, json=request, headers=get_default_headers())
     response.raise_for_status()
     return response.json()
 
@@ -252,7 +252,7 @@ def generate_merkle_proof(request: GenerateMerkleProofRequest) -> APIResponse:
         requests.HTTPError: If the API request fails
     """
     url = get_kayros_url('/api/merkle/generate-proof')
-    response = requests.post(url, json=request, headers={'Content-Type': 'application/json'})
+    response = requests.post(url, json=request, headers=get_default_headers())
     response.raise_for_status()
     return response.json()
 
@@ -271,6 +271,6 @@ def verify_merkle_proof(request: VerifyMerkleProofRequest) -> APIResponse:
         requests.HTTPError: If the API request fails
     """
     url = get_kayros_url('/api/merkle/verify-proof')
-    response = requests.post(url, json=request, headers={'Content-Type': 'application/json'})
+    response = requests.post(url, json=request, headers=get_default_headers())
     response.raise_for_status()
     return response.json()
