@@ -128,7 +128,7 @@ function resolveKayrosHash(envelope: KayrosEnvelope): string | undefined {
 }
 
 function resolveDataType(envelope: KayrosEnvelope): string | undefined {
-  const fromEnvelope = envelope.getDataTypeLabel();
+  const fromEnvelope = envelope.getDataType();
   if (fromEnvelope) {
     return fromEnvelope;
   }
@@ -140,6 +140,7 @@ function resolveDataType(envelope: KayrosEnvelope): string | undefined {
   return registerResponse?.data_type
     || registerResponse?.data?.data_type
     || timestampResponse?.data?.data_type
+    || envelope.getDataTypeLabel()
     || undefined;
 }
 

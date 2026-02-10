@@ -20,6 +20,52 @@ export interface KayrosMetadataV0 extends APIResponse<SingleHashResponse> {
 
 export type AnyKayrosMetadata = KayrosMetadata | KayrosMetadataV0;
 
+function decodeHexString(value: string): string | undefined {
+  const normalized = value.startsWith('0x') ? value.slice(2) : value;
+  if (normalized.length === 0 || normalized.length % 2 !== 0) {
+    return undefined;
+  }
+  if (!/^[0-9a-fA-F]+$/.test(normalized)) {
+    return undefined;
+  }
+
+  const bytes = new Uint8Array(normalized.length / 2);
+  for (let i = 0; i < normalized.length; i += 2) {
+    const byte = Number.parseInt(normalized.slice(i, i + 2), 16);
+    if (Number.isNaN(byte)) {
+      return undefined;
+    }
+    bytes[i / 2] = byte;
+  }
+
+  return new TextDecoder().decode(bytes);
+}
+
+function toDisplayLabel(value: string): string | undefined {
+  return value.length > 0 ? value : undefined;
+}
+
+function decodeBase64ToBytes(value: string): Uint8Array | undefined {
+  const normalized = value.trim();
+  if (normalized.length === 0 || normalized.length % 4 !== 0) {
+    return undefined;
+  }
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(normalized)) {
+    return undefined;
+  }
+
+  try {
+    const binaryString = atob(normalized);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Kayros envelope with data and proof metadata
  */
@@ -50,46 +96,46 @@ export class KayrosEnvelope<T = unknown> {
   }
 
   /**
-   * Get the data type (data_type_hex) from the metadata
+   * Get the data type from the metadata.
+   * V1 uses raw string data_type; V0 may expose data_type_hex.
    */
   getDataType(): string | undefined {
-    const m = this.kayros;
-    // V0 format
-    if ('data' in m && m.data?.data_type_hex) {
-      return m.data.data_type_hex;
+    const m = this.kayros as any;
+    const response = m.timestamp?.response;
+    const registerResponse = response?.response ?? response;
+
+    const v1DataType = registerResponse?.data_type
+      || registerResponse?.data?.data_type
+      || response?.data?.data_type;
+    if (typeof v1DataType === 'string' && v1DataType.length > 0) {
+      return v1DataType;
     }
-    // V1 with timestamp response
-    if ('timestamp' in m && m.timestamp?.response?.data?.data_type_hex) {
-      return m.timestamp.response.data.data_type_hex;
+
+    const legacyDataTypeHex = m.data?.data_type_hex
+      || registerResponse?.data_type_hex
+      || registerResponse?.data?.data_type_hex
+      || response?.data?.data_type_hex;
+    if (typeof legacyDataTypeHex === 'string' && legacyDataTypeHex.length > 0) {
+      return decodeHexString(legacyDataTypeHex) ?? legacyDataTypeHex;
     }
+
     return undefined;
   }
 
   /**
-   * Get the data type label by decoding data_type_hex.
+   * Get display label for the data type.
    */
   getDataTypeLabel(): string | undefined {
-    const dataTypeHex = this.getDataType();
-    if (!dataTypeHex) {
+    const dataType = this.getDataType();
+    if (!dataType) {
       return undefined;
     }
 
-    const normalized = dataTypeHex.startsWith('0x') ? dataTypeHex.slice(2) : dataTypeHex;
-    if (normalized.length === 0 || normalized.length % 2 !== 0) {
-      return undefined;
+    const decoded = decodeHexString(dataType);
+    if (decoded) {
+      return toDisplayLabel(decoded);
     }
-
-    const bytes = new Uint8Array(normalized.length / 2);
-    for (let i = 0; i < normalized.length; i += 2) {
-      const byte = Number.parseInt(normalized.slice(i, i + 2), 16);
-      if (Number.isNaN(byte)) {
-        return undefined;
-      }
-      bytes[i / 2] = byte;
-    }
-
-    const decoded = new TextDecoder().decode(bytes);
-    return decoded.length > 0 ? decoded : undefined;
+    return toDisplayLabel(dataType);
   }
 
   /**
@@ -203,14 +249,46 @@ export class KayrosEnvelope<T = unknown> {
    * Compute the data hash based on the envelope hash algorithm.
    */
   async computeDataHash(): Promise<string> {
-    const data = this.getData();
     const algorithm = this.getHashAlgorithm();
+    const computeForBytes = async (bytes: Uint8Array) => {
+      if (algorithm === 'keccak256' || algorithm === 'keccak-256') {
+        return keccak256(bytes);
+      }
+      return sha256(bytes);
+    };
 
-    if (algorithm === 'keccak256' || algorithm === 'keccak-256') {
-      return keccak256(data);
+    if (typeof this.data !== 'string') {
+      const data = this.getData();
+      return computeForBytes(data);
     }
 
-    return sha256(data);
+    const utf8Bytes = new TextEncoder().encode(this.data);
+    const base64Bytes = decodeBase64ToBytes(this.data);
+    const expectedDataHash = this.getDataHash()?.toLowerCase();
+
+    // Try to match known proof hash first so mixed legacy/new proof shapes still verify.
+    if (expectedDataHash) {
+      if (base64Bytes) {
+        const base64Hash = await computeForBytes(base64Bytes);
+        if (base64Hash === expectedDataHash) {
+          return base64Hash;
+        }
+      }
+
+      const utf8Hash = await computeForBytes(utf8Bytes);
+      if (utf8Hash === expectedDataHash) {
+        return utf8Hash;
+      }
+    }
+
+    // Fallback behavior:
+    // - prefer decoded bytes for explicit V0 shape
+    // - otherwise keep V1 behavior (hash raw string bytes)
+    if (this.isV0() && base64Bytes) {
+      return computeForBytes(base64Bytes);
+    }
+
+    return computeForBytes(utf8Bytes);
   }
 }
 

@@ -54,6 +54,23 @@ export function getRecordUrl(hash: string, dataType?: string): string {
  * Format data type for Kayros query params (pad to 32 bytes with nulls).
  */
 export function formatDataTypeForQuery(dataType: string): string {
+  const normalized = dataType.startsWith('0x') ? dataType.slice(2) : dataType;
+  if (
+    normalized.length > 0 &&
+    normalized.length % 2 === 0 &&
+    /^[0-9a-fA-F]+$/.test(normalized)
+  ) {
+    const bytes = new Uint8Array(normalized.length / 2);
+    for (let i = 0; i < normalized.length; i += 2) {
+      const byte = Number.parseInt(normalized.slice(i, i + 2), 16);
+      if (Number.isNaN(byte)) {
+        return dataType;
+      }
+      bytes[i / 2] = byte;
+    }
+    return new TextDecoder().decode(bytes);
+  }
+
   return dataType;
 }
 

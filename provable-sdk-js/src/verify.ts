@@ -56,20 +56,57 @@ function resolveRegisterResponse<T>(envelope: KayrosEnvelope<T>): any {
   return response?.response ?? response;
 }
 
-function resolveDataTypeForLookup<T>(envelope: KayrosEnvelope<T>): string | undefined {
+function decodeHexDataType(value: string): string | undefined {
+  const normalized = value.startsWith('0x') ? value.slice(2) : value;
+  if (normalized.length === 0 || normalized.length % 2 !== 0) {
+    return undefined;
+  }
+  if (!/^[0-9a-fA-F]+$/.test(normalized)) {
+    return undefined;
+  }
+
+  const bytes = new Uint8Array(normalized.length / 2);
+  for (let i = 0; i < normalized.length; i += 2) {
+    const byte = Number.parseInt(normalized.slice(i, i + 2), 16);
+    if (Number.isNaN(byte)) {
+      return undefined;
+    }
+    bytes[i / 2] = byte;
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+function resolveDataTypeLookupCandidates<T>(envelope: KayrosEnvelope<T>): Array<string | undefined> {
   const timestampResponse = resolveTimestampResponse(envelope);
   const registerResponse = resolveRegisterResponse(envelope);
+  const candidates: string[] = [];
+  const seen = new Set<string>();
+
+  const add = (value: unknown) => {
+    if (typeof value !== 'string' || value.length === 0) {
+      return;
+    }
+    if (!seen.has(value)) {
+      seen.add(value);
+      candidates.push(value);
+    }
+    const decoded = decodeHexDataType(value);
+    if (decoded && !seen.has(decoded)) {
+      seen.add(decoded);
+      candidates.push(decoded);
+    }
+  };
 
   // Keep raw value first (including any null-byte padding) for exact Kayros lookup.
   const rawDataType = timestampResponse?.data?.data_type
     || registerResponse?.data?.data_type
     || registerResponse?.data_type;
 
-  if (typeof rawDataType === 'string' && rawDataType.length > 0) {
-    return rawDataType;
-  }
+  add(rawDataType);
+  add(envelope.getDataType());
+  add(envelope.getDataTypeLabel());
 
-  return envelope.getDataTypeLabel() || undefined;
+  return candidates.length > 0 ? candidates : [undefined];
 }
 
 /**
@@ -109,22 +146,27 @@ export async function verify<T = unknown>(envelope: KayrosEnvelope<T>): Promise<
 
     // If there's a Kayros hash, verify against remote record
     const kayrosHash = envelope.getKayrosHash();
-    const dataType = resolveDataTypeForLookup(envelope);
+    const dataTypeCandidates = resolveDataTypeLookupCandidates(envelope);
     if (kayrosHash) {
 
       try {
-        // Fetch remote record with retry logic
+        // Fetch remote record with retry logic and data_type fallbacks.
         let remoteRecord;
         let lastError: unknown;
         const delays = [1000, 2000, 2000];
-        for (let attempt = 0; attempt < delays.length; attempt += 1) {
-          try {
-            remoteRecord = await get_record_by_hash(kayrosHash, dataType);
-            lastError = undefined;
+        for (const dataType of dataTypeCandidates) {
+          for (let attempt = 0; attempt < delays.length; attempt += 1) {
+            try {
+              remoteRecord = await get_record_by_hash(kayrosHash, dataType);
+              lastError = undefined;
+              break;
+            } catch (err) {
+              lastError = err;
+              await new Promise(resolve => setTimeout(resolve, delays[attempt]));
+            }
+          }
+          if (remoteRecord) {
             break;
-          } catch (err) {
-            lastError = err;
-            await new Promise(resolve => setTimeout(resolve, delays[attempt]));
           }
         }
         if (!remoteRecord) {
