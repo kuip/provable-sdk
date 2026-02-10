@@ -52,7 +52,7 @@ func isHex64(value string) bool {
 
 // Verify verifies data against a Kayros proof
 func Verify(envelope *KayrosEnvelope) *VerifyResult {
-	dataHash := envelope.GetDataHash()
+	dataHash := strings.ToLower(envelope.GetDataHash())
 
 	if dataHash == "" {
 		return &VerifyResult{
@@ -68,6 +68,7 @@ func Verify(envelope *KayrosEnvelope) *VerifyResult {
 			Error: fmt.Sprintf("Failed to compute data hash: %v", err),
 		}
 	}
+	computedHash = strings.ToLower(computedHash)
 
 	// Check if hashes match
 	hashMatch := computedHash == dataHash
@@ -75,38 +76,49 @@ func Verify(envelope *KayrosEnvelope) *VerifyResult {
 	if !hashMatch {
 		return &VerifyResult{
 			Valid: false,
-			Error: "Hash mismatch: computed hash does not match data hash",
+			Error: fmt.Sprintf("Hash mismatch: computed=%s expected=%s", computedHash, dataHash),
 			Details: &VerifyResultDetails{
 				HashMatch:    false,
 				ComputedHash: computedHash,
-				DataHash: dataHash,
+				DataHash:     dataHash,
 			},
 		}
 	}
 
-	// If there's a Kayros hash, verify against remote record
+	// If there's a Kayros hash, verify against remote record.
 	kayrosHash := envelope.GetKayrosHash()
-	dataType := envelope.GetDataTypeLabel()
+	dataTypeCandidates := envelope.GetDataTypeLookupCandidates()
+	if len(dataTypeCandidates) == 0 {
+		// Empty string signals "no explicit data_type", and GetRecordByHash omits it.
+		dataTypeCandidates = []string{""}
+	}
 	if kayrosHash != "" {
-		// Fetch remote record with retry logic
+		// Fetch remote record with retry logic and data_type fallbacks.
 		var remoteRecord *GetRecordResponse
 		var err error
+		delays := []time.Duration{1 * time.Second, 2 * time.Second, 2 * time.Second}
 
-		remoteRecord, err = GetRecordByHash(kayrosHash, dataType)
-		if err != nil {
-			// Retry once after 2 seconds
-			time.Sleep(2 * time.Second)
-			remoteRecord, err = GetRecordByHash(kayrosHash, dataType)
-			if err != nil {
-				return &VerifyResult{
-					Valid: false,
-					Error: fmt.Sprintf("Failed to fetch remote record: %v", err),
-					Details: &VerifyResultDetails{
-						HashMatch:    true,
-						ComputedHash: computedHash,
-						DataHash: dataHash,
-					},
+		for _, dataType := range dataTypeCandidates {
+			for i := 0; i < len(delays); i++ {
+				remoteRecord, err = GetRecordByHash(kayrosHash, dataType)
+				if err == nil {
+					break
 				}
+				time.Sleep(delays[i])
+			}
+			if err == nil {
+				break
+			}
+		}
+		if err != nil || remoteRecord == nil {
+			return &VerifyResult{
+				Valid: false,
+				Error: fmt.Sprintf("Failed to fetch remote record: %v", err),
+				Details: &VerifyResultDetails{
+					HashMatch:    true,
+					ComputedHash: computedHash,
+					DataHash:     dataHash,
+				},
 			}
 		}
 
@@ -122,10 +134,11 @@ func Verify(envelope *KayrosEnvelope) *VerifyResult {
 				Details: &VerifyResultDetails{
 					HashMatch:    true,
 					ComputedHash: computedHash,
-					DataHash: dataHash,
+					DataHash:     dataHash,
 				},
 			}
 		}
+		remoteDataItemHex = strings.ToLower(remoteDataItemHex)
 		remoteMatch := computedHash == remoteDataItemHex
 
 		if !remoteMatch {
@@ -136,7 +149,7 @@ func Verify(envelope *KayrosEnvelope) *VerifyResult {
 					HashMatch:    true,
 					RemoteMatch:  false,
 					ComputedHash: computedHash,
-					DataHash: dataHash,
+					DataHash:     dataHash,
 					RemoteHash:   remoteDataItemHex,
 				},
 			}
@@ -148,7 +161,7 @@ func Verify(envelope *KayrosEnvelope) *VerifyResult {
 				HashMatch:    true,
 				RemoteMatch:  true,
 				ComputedHash: computedHash,
-				DataHash: dataHash,
+				DataHash:     dataHash,
 				RemoteHash:   remoteDataItemHex,
 			},
 		}
@@ -160,7 +173,7 @@ func Verify(envelope *KayrosEnvelope) *VerifyResult {
 		Details: &VerifyResultDetails{
 			HashMatch:    true,
 			ComputedHash: computedHash,
-			DataHash: dataHash,
+			DataHash:     dataHash,
 		},
 	}
 }

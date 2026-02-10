@@ -20,7 +20,7 @@ def verify(envelope: KayrosEnvelope) -> VerifyResult:
         Verification result with validity status and details
     """
     try:
-        data_hash = envelope.get_data_hash()
+        data_hash = (envelope.get_data_hash() or "").lower()
 
         if not data_hash:
             return {
@@ -28,7 +28,7 @@ def verify(envelope: KayrosEnvelope) -> VerifyResult:
                 "error": "Missing hash in envelope",
             }
 
-        computed_hash = envelope.compute_data_hash()
+        computed_hash = envelope.compute_data_hash().lower()
 
         # Check if hashes match
         hash_match = computed_hash == data_hash
@@ -36,7 +36,7 @@ def verify(envelope: KayrosEnvelope) -> VerifyResult:
         if not hash_match:
             return {
                 "valid": False,
-                "error": "Hash mismatch: computed hash does not match data hash",
+                "error": f"Hash mismatch: computed={computed_hash} expected={data_hash}",
                 "details": {
                     "hashMatch": False,
                     "computedHash": computed_hash,
@@ -46,16 +46,28 @@ def verify(envelope: KayrosEnvelope) -> VerifyResult:
 
         # If there's a Kayros hash, verify against remote record
         kayros_hash = envelope.get_kayros_hash()
-        data_type = envelope.get_data_type_label() or None
+        data_type_candidates = envelope.get_data_type_lookup_candidates()
+        if not data_type_candidates:
+            # None signals "omit data_type query param" in get_record_by_hash.
+            data_type_candidates = [None]
         if kayros_hash:
             try:
-                # Fetch remote record with retry logic
-                try:
-                    remote_record = get_record_by_hash(kayros_hash, data_type)
-                except Exception:
-                    # Retry once after 2 seconds
-                    time.sleep(2)
-                    remote_record = get_record_by_hash(kayros_hash, data_type)
+                # Fetch remote record with retry logic and data_type fallbacks.
+                remote_record = None
+                last_error = None
+                for data_type in data_type_candidates:
+                    for delay in (1, 2, 2):
+                        try:
+                            remote_record = get_record_by_hash(kayros_hash, data_type)
+                            last_error = None
+                            break
+                        except Exception as exc:
+                            last_error = exc
+                            time.sleep(delay)
+                    if remote_record is not None:
+                        break
+                if remote_record is None and last_error is not None:
+                    raise last_error
 
                 remote_data_item_hex = None
                 if isinstance(remote_record, dict):
@@ -74,6 +86,7 @@ def verify(envelope: KayrosEnvelope) -> VerifyResult:
                             "dataHash": data_hash,
                         },
                     }
+                remote_data_item_hex = remote_data_item_hex.lower()
                 remote_match = computed_hash == remote_data_item_hex
 
                 if not remote_match:

@@ -52,20 +52,20 @@ func ProveSingleHash(dataHash string, dataType ...string) (*ProveSingleHashRespo
 
 // GetRecordByHash gets a Kayros record by hash
 func GetRecordByHash(recordHash string, dataType ...string) (*GetRecordResponse, error) {
-	dt := DataType
-	if len(dataType) > 0 && dataType[0] != "" {
-		dt = dataType[0]
-	}
-
-	padded := FormatDataTypeForQuery(dt)
 	formattedHash := FormatHashForQuery(recordHash)
+	baseURL := GetKayrosURL(GetRecordByHashRoute)
 	buildURL := func(hash string) string {
-		return fmt.Sprintf(
-			"%s?hash=%s&data_type=%s",
-			GetKayrosURL(GetRecordByHashRoute),
-			url.QueryEscape(hash),
-			url.QueryEscape(padded),
-		)
+		query := fmt.Sprintf("%s?hash=%s", baseURL, url.QueryEscape(hash))
+		// Backward-compatible behavior:
+		// - no arg: use default DATA_TYPE
+		// - arg == "": omit data_type
+		// - arg != "": use provided data_type
+		if len(dataType) == 0 {
+			query += "&data_type=" + url.QueryEscape(FormatDataTypeForQuery(DataType))
+		} else if dataType[0] != "" {
+			query += "&data_type=" + url.QueryEscape(FormatDataTypeForQuery(dataType[0]))
+		}
+		return query
 	}
 	url := buildURL(formattedHash)
 	var resp *http.Response

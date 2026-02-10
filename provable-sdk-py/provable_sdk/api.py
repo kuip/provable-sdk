@@ -15,6 +15,8 @@ from .config import (
 )
 from .types import ProveSingleHashResponse, GetRecordResponse
 
+_UNSET = object()
+
 
 def prove_single_hash(data_hash: str, data_type: str = None) -> ProveSingleHashResponse:
     """
@@ -47,7 +49,7 @@ def prove_single_hash(data_hash: str, data_type: str = None) -> ProveSingleHashR
     return response.json()
 
 
-def get_record_by_hash(record_hash: str, data_type: str = None) -> GetRecordResponse:
+def get_record_by_hash(record_hash: str, data_type: Any = _UNSET) -> GetRecordResponse:
     """
     Get a Kayros record by hash
 
@@ -60,12 +62,17 @@ def get_record_by_hash(record_hash: str, data_type: str = None) -> GetRecordResp
     Raises:
         requests.HTTPError: If the API request fails
     """
-    dt = data_type if data_type is not None else DATA_TYPE
+    query = f"{API_ROUTES['GET_RECORD_BY_HASH']}?hash={format_hash_for_query(record_hash)}"
+    # Backward-compatible behavior:
+    # - omitted argument: use default DATA_TYPE
+    # - explicit None: omit data_type
+    # - explicit string: use provided data_type
+    if data_type is _UNSET:
+        query += f"&data_type={format_data_type_for_query(DATA_TYPE)}"
+    elif data_type is not None:
+        query += f"&data_type={format_data_type_for_query(data_type)}"
 
-    url = get_kayros_url(
-        f"{API_ROUTES['GET_RECORD_BY_HASH']}?hash={format_hash_for_query(record_hash)}"
-        f"&data_type={format_data_type_for_query(dt)}"
-    )
+    url = get_kayros_url(query)
 
     response = requests.get(
         url,
