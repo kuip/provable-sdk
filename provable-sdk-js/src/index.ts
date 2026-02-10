@@ -32,7 +32,7 @@ export {
 } from './lightnet';
 
 // Export KayrosEnvelope class
-export { KayrosEnvelope } from './types';
+export { KayrosEnvelope } from './envelope';
 
 // Export types
 export type {

@@ -4,7 +4,7 @@
 
 import { get_record_by_hash } from './api';
 import type { VerifyResult } from './types';
-import { KayrosEnvelope } from './types';
+import { KayrosEnvelope } from './envelope';
 
 function normalizeRemoteDataItemHex(value: string): string | undefined {
   if (!value) return undefined;
@@ -47,68 +47,6 @@ function normalizeUuid(value: string | undefined): string | undefined {
   return undefined;
 }
 
-function resolveTimestampResponse<T>(envelope: KayrosEnvelope<T>): any {
-  return (envelope as any)?.kayros?.timestamp?.response;
-}
-
-function resolveRegisterResponse<T>(envelope: KayrosEnvelope<T>): any {
-  const response = resolveTimestampResponse(envelope);
-  return response?.response ?? response;
-}
-
-function decodeHexDataType(value: string): string | undefined {
-  const normalized = value.startsWith('0x') ? value.slice(2) : value;
-  if (normalized.length === 0 || normalized.length % 2 !== 0) {
-    return undefined;
-  }
-  if (!/^[0-9a-fA-F]+$/.test(normalized)) {
-    return undefined;
-  }
-
-  const bytes = new Uint8Array(normalized.length / 2);
-  for (let i = 0; i < normalized.length; i += 2) {
-    const byte = Number.parseInt(normalized.slice(i, i + 2), 16);
-    if (Number.isNaN(byte)) {
-      return undefined;
-    }
-    bytes[i / 2] = byte;
-  }
-  return new TextDecoder().decode(bytes);
-}
-
-function resolveDataTypeLookupCandidates<T>(envelope: KayrosEnvelope<T>): Array<string | undefined> {
-  const timestampResponse = resolveTimestampResponse(envelope);
-  const registerResponse = resolveRegisterResponse(envelope);
-  const candidates: string[] = [];
-  const seen = new Set<string>();
-
-  const add = (value: unknown) => {
-    if (typeof value !== 'string' || value.length === 0) {
-      return;
-    }
-    if (!seen.has(value)) {
-      seen.add(value);
-      candidates.push(value);
-    }
-    const decoded = decodeHexDataType(value);
-    if (decoded && !seen.has(decoded)) {
-      seen.add(decoded);
-      candidates.push(decoded);
-    }
-  };
-
-  // Keep raw value first (including any null-byte padding) for exact Kayros lookup.
-  const rawDataType = timestampResponse?.data?.data_type
-    || registerResponse?.data?.data_type
-    || registerResponse?.data_type;
-
-  add(rawDataType);
-  add(envelope.getDataType());
-  add(envelope.getDataTypeLabel());
-
-  return candidates.length > 0 ? candidates : [undefined];
-}
-
 /**
  * Verify data against a Kayros proof
  * @param envelope - Object containing data and kayros metadata
@@ -116,15 +54,16 @@ function resolveDataTypeLookupCandidates<T>(envelope: KayrosEnvelope<T>): Array<
  */
 export async function verify<T = unknown>(envelope: KayrosEnvelope<T>): Promise<VerifyResult> {
   try {
-    const dataHash = envelope.getDataHash();
+    const dataHashRaw = envelope.getDataHash();
 
-    if (!dataHash) {
+    if (!dataHashRaw) {
       return {
         valid: false,
         error: 'Missing hash in envelope',
       };
     }
 
+    const dataHash = dataHashRaw.toLowerCase();
     const computedHash = await envelope.computeDataHash();
     const proofTimeuuidRaw = envelope.getTimeUUID();
     const proofTimeuuid = normalizeUuid(proofTimeuuidRaw);
@@ -135,7 +74,7 @@ export async function verify<T = unknown>(envelope: KayrosEnvelope<T>): Promise<
     if (!hashMatch) {
       return {
         valid: false,
-        error: 'Hash mismatch: computed hash does not match data hash',
+        error: `Hash mismatch: computed=${computedHash} expected=${dataHash}`,
         details: {
           hashMatch: false,
           computedHash,
@@ -146,7 +85,7 @@ export async function verify<T = unknown>(envelope: KayrosEnvelope<T>): Promise<
 
     // If there's a Kayros hash, verify against remote record
     const kayrosHash = envelope.getKayrosHash();
-    const dataTypeCandidates = resolveDataTypeLookupCandidates(envelope);
+    const dataTypeCandidates = envelope.getDataTypeLookupCandidates();
     if (kayrosHash) {
 
       try {
@@ -154,7 +93,8 @@ export async function verify<T = unknown>(envelope: KayrosEnvelope<T>): Promise<
         let remoteRecord;
         let lastError: unknown;
         const delays = [1000, 2000, 2000];
-        for (const dataType of dataTypeCandidates) {
+        const lookupCandidates = dataTypeCandidates.length > 0 ? dataTypeCandidates : [undefined];
+        for (const dataType of lookupCandidates) {
           for (let attempt = 0; attempt < delays.length; attempt += 1) {
             try {
               remoteRecord = await get_record_by_hash(kayrosHash, dataType);

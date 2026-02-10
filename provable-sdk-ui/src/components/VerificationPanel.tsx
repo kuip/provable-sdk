@@ -44,7 +44,7 @@ export function VerificationPanel({
       {loading && <div className="pv-subtle">Verifying proof...</div>}
       {error && <div className="pv-error">{error}</div>}
 
-      {!loading && !error && (
+      {!loading && (
         <div>
           <div className="pv-kv">
             <div className="pv-label">Hash Match</div>
