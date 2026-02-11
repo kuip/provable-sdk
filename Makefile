@@ -172,6 +172,7 @@ build-ui:
 
 build-py:
 	@echo "Building Python SDK..."
+	@cd provable-sdk-py && rm -rf dist build *.egg-info
 	@cd provable-sdk-py && python -m build
 	@echo "✓ Python build complete!"
 
@@ -220,7 +221,7 @@ publish-py: test-py build-py
 	echo ""; \
 	echo "Press Ctrl+C to cancel, or Enter to continue..."; \
 	read -r; \
-	cd provable-sdk-py && python -m twine upload dist/* && \
+	cd provable-sdk-py && python -m twine upload dist/provable_sdk-$$VERSION* && \
 	cd .. && git tag -a "py-v$$VERSION" -m "Release Python SDK v$$VERSION" && \
 	git push origin main && \
 	git push origin "py-v$$VERSION"
@@ -279,7 +280,8 @@ publish-dry-run-js:
 
 publish-dry-run-py: build-py
 	@echo "Dry run: Publishing Python SDK..."
-	@cd provable-sdk-py && python -m twine check dist/*
+	@VERSION=$$(cd provable-sdk-py && grep '^version = ' pyproject.toml | cut -d'"' -f2); \
+	cd provable-sdk-py && python -m twine check dist/provable_sdk-$$VERSION*
 	@echo "✓ Python dry run complete!"
 
 # Helper targets for version management

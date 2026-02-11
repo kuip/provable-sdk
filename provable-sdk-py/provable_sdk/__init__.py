@@ -2,6 +2,8 @@
 Provable SDK for Python
 """
 
+from importlib.metadata import PackageNotFoundError, version
+
 from .hash import hash, keccak256, hash_str, keccak256_str, sha256, sha256_str
 from .api import prove_single_hash, get_record_by_hash
 from .prove import prove_data, prove_data_str
@@ -61,7 +63,11 @@ from .config import (
     get_user_key,
 )
 
-__version__ = "0.1.0"
+try:
+    __version__ = version("provable-sdk")
+except PackageNotFoundError:
+    # Local source execution without installed distribution metadata.
+    __version__ = "0.0.0"
 
 __all__ = [
     "hash",
