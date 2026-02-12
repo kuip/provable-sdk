@@ -33,7 +33,7 @@ help:
 	@echo "  make publish-js    - Publish TypeScript package to npm"
 	@echo "  make publish-ui    - Publish UI package to npm"
 	@echo "  make publish-py    - Publish Python package to PyPI"
-	@echo "  make publish-go    - Tag and push Go module (requires VERSION=vX.Y.Z)"
+	@echo "  make publish-go    - Tag and push Go module (defaults to JS version; override with VERSION=vX.Y.Z)"
 	@echo ""
 	@echo "  make publish-dry-run    - Test publish for JS and Python without uploading"
 	@echo "  make publish-dry-run-js - Test npm publish without uploading"
@@ -228,23 +228,24 @@ publish-py: test-py build-py
 	@echo "✓ Python SDK published and tagged!"
 
 publish-go: test-go
-	@echo "Publishing Go SDK..."
-	@if [ -z "$(VERSION)" ]; then \
-		echo "❌ Error: VERSION not specified. Usage: make publish-go VERSION=v0.1.0"; \
-		exit 1; \
-	fi
-	@echo "Version: $(VERSION)"
-	@echo "⚠️  This will:"
-	@echo "  1. Create git tag go-$(VERSION)"
-	@echo "  2. Push tag and commits to main"
-	@echo ""
-	@echo "Press Ctrl+C to cancel, or Enter to continue..."
-	@read -r
-	@git tag -a "go-$(VERSION)" -m "Release Go SDK $(VERSION)"
-	@git push origin main
-	@git push origin "go-$(VERSION)"
-	@echo "✓ Go SDK published with tag go-$(VERSION)!"
-	@echo "Users can install with: go get github.com/provable/provable-sdk-go@go-$(VERSION)"
+	@VERSION_VALUE="$(VERSION)"; \
+	if [ -z "$$VERSION_VALUE" ]; then \
+		JS_VERSION=$$(cd provable-sdk-js && node -p "require('./package.json').version"); \
+		VERSION_VALUE="v$$JS_VERSION"; \
+	fi; \
+	echo "Publishing Go SDK..."; \
+	echo "Version: $$VERSION_VALUE"; \
+	echo "⚠️  This will:"; \
+	echo "  1. Create git tag go-$$VERSION_VALUE"; \
+	echo "  2. Push tag and commits to main"; \
+	echo ""; \
+	echo "Press Ctrl+C to cancel, or Enter to continue..."; \
+	read -r; \
+	git tag -a "go-$$VERSION_VALUE" -m "Release Go SDK $$VERSION_VALUE"; \
+	git push origin main; \
+	git push origin "go-$$VERSION_VALUE"; \
+	echo "✓ Go SDK published with tag go-$$VERSION_VALUE!"; \
+	echo "Users can install with: go get github.com/provable/provable-sdk-go@go-$$VERSION_VALUE"
 
 # Publish all SDKs (alias for publish-all)
 publish: publish-all
@@ -263,10 +264,9 @@ publish-all:
 	@make publish-js
 	@make publish-ui
 	@make publish-py
+	@make publish-go
 	@echo ""
-	@echo "✓ JavaScript and Python SDKs published!"
-	@echo ""
-	@echo "For Go SDK, run: make publish-go VERSION=vX.Y.Z"
+	@echo "✓ JavaScript, UI, Python, and Go SDKs published!"
 
 # Dry run publish (test without actually publishing)
 publish-dry-run: publish-dry-run-js publish-dry-run-py
@@ -292,4 +292,5 @@ version-py:
 	@cd provable-sdk-py && grep "version = " pyproject.toml
 
 version-go:
-	@cd provable-sdk-go && git tag --list | grep "^v" | sort -V | tail -1
+	@JS_VERSION=$$(cd provable-sdk-js && node -p "require('./package.json').version"); \
+	echo "v$$JS_VERSION"
