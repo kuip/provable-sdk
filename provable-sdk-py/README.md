@@ -10,6 +10,10 @@ pip install provable-sdk
 
 ## Usage
 
+### 1. Default usage
+
+Use the SDK with no explicit API key and no custom data type. This uses the default `provable_sdk` data type and the built-in default key.
+
 ```python
 from provable_sdk import (
     keccak256,
@@ -64,6 +68,67 @@ else:
     print(f"Verification failed: {result['error']}")
 ```
 
+### 2. Usage with API key and custom data type
+
+If your app stores a private API key and a project-specific data type in settings, pass them into the SDK when you call the API.
+
+```python
+import os
+
+from provable_sdk import (
+    prove_single_hash,
+    prove_data,
+    get_record_by_hash,
+    verify,
+    KayrosEnvelope,
+    set_api_key,
+)
+
+settings = {
+    "api_key": os.environ["KAYROS_API_KEY"],
+    "data_type": "kayros_indexer_v1",
+}
+
+# Optional: set the key once for subsequent calls.
+set_api_key(settings["api_key"])
+
+proof = prove_single_hash(
+    "your_hash_here",
+    data_type=settings["data_type"],
+    api_key=settings["api_key"],
+)
+
+data_proof = prove_data(
+    b"hello",
+    data_type=settings["data_type"],
+    api_key=settings["api_key"],
+)
+
+record = get_record_by_hash(
+    "computed_hash_here",
+    data_type=settings["data_type"],
+    api_key=settings["api_key"],
+)
+
+envelope = KayrosEnvelope(
+    data="hello",
+    kayros={
+        "hash": "local_data_hash",
+        "hashAlgorithm": "keccak256",
+        "timestamp": {
+            "service": "kayros",
+            "response": proof,
+        },
+    },
+)
+
+result = verify(
+    envelope,
+    api_key=settings["api_key"],
+    data_type=settings["data_type"],
+)
+```
+
 ## API
 
 ### Hash Functions
@@ -79,14 +144,30 @@ else:
 - `prove_single_hash(data_hash: str) -> ProveSingleHashResponse` - Prove a hash via Kayros API
 - `prove_data(data: bytes) -> ProveSingleHashResponse` - Hash and prove bytes
 - `prove_data_str(s: str) -> ProveSingleHashResponse` - Hash and prove a string
+- `set_api_key(api_key: str) -> None` - Set the API key used for subsequent requests
+
+You can also pass request options directly:
+
+- `prove_single_hash(data_hash, data_type="kayros_indexer_v1", api_key="...")`
+- `prove_data(data, data_type="kayros_indexer_v1", api_key="...")`
+- `prove_data_str(text, data_type="kayros_indexer_v1", api_key="...")`
 
 ### Record Functions
 
 - `get_record_by_hash(record_hash: str) -> GetRecordResponse` - Get Kayros record by hash
 
+Request options:
+
+- `get_record_by_hash(record_hash, data_type="kayros_indexer_v1", api_key="...")`
+- `get_record_by_hash(record_hash, data_type=None, api_key="...")` omits the `data_type` lookup query parameter.
+
 ### Verify Function
 
 - `verify(envelope: KayrosEnvelope) -> VerifyResult` - Verify data against Kayros proof
+
+Request options:
+
+- `verify(envelope, api_key="...", data_type="kayros_indexer_v1")`
 
 ## KayrosEnvelope
 
@@ -96,19 +177,13 @@ The `KayrosEnvelope` class wraps data with Kayros proof metadata:
 envelope = KayrosEnvelope(data=my_data, kayros=kayros_metadata)
 
 # Helper methods
-envelope.get_data()           # Get data as bytes (decodes base64 for V0)
+envelope.get_data()           # Get data as bytes
 envelope.get_data_hash()      # Get the data hash (data_item_hex)
 envelope.get_data_type()      # Get the data type (data_type_hex)
 envelope.get_kayros_hash()    # Get the Kayros hash (computed_hash_hex)
 envelope.get_time_uuid()      # Get the time UUID (timeuuid_hex)
 envelope.get_hash_algorithm() # Get hash algorithm (defaults to 'sha256')
-envelope.is_v0()              # Check if V0 format (legacy, for email proofs)
 ```
-
-### Envelope Formats
-
-- **V1 (default)**: Hash stored in `kayros["hash"]`, data is plain string or object
-- **V0 (legacy)**: Hash in `kayros["data"]["data_item_hex"]`, data is base64-encoded bytes (used for email proofs)
 
 ## License
 

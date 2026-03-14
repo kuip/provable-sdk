@@ -5,6 +5,7 @@
 import { keccak256, keccak256_str } from './hash';
 import { prove_single_hash } from './api';
 import type { ProveSingleHashResponse } from './types';
+import type { ProveOptions } from './options';
 
 /**
  * Prove data by computing its hash and calling Kayros API
@@ -12,9 +13,12 @@ import type { ProveSingleHashResponse } from './types';
  * @param dataType - Optional data type identifier (defaults to "provable_sdk" padded to 32 bytes)
  * @returns Promise with the Kayros response
  */
-export async function prove_data(data: Uint8Array, dataType?: string): Promise<ProveSingleHashResponse> {
+export async function prove_data(
+  data: Uint8Array,
+  dataTypeOrOptions?: string | ProveOptions
+): Promise<ProveSingleHashResponse> {
   const dataHash = keccak256(data);
-  return await prove_single_hash(dataHash, dataType);
+  return await prove_single_hash(dataHash, dataTypeOrOptions);
 }
 
 /**
@@ -23,7 +27,10 @@ export async function prove_data(data: Uint8Array, dataType?: string): Promise<P
  * @param dataType - Optional data type identifier (defaults to "provable_sdk" padded to 32 bytes)
  * @returns Promise with the Kayros response
  */
-export async function prove_data_str(str: string, dataType?: string): Promise<ProveSingleHashResponse> {
+export async function prove_data_str(
+  str: string,
+  dataTypeOrOptions?: string | ProveOptions
+): Promise<ProveSingleHashResponse> {
   const dataHash = keccak256_str(str);
-  return await prove_single_hash(dataHash, dataType);
+  return await prove_single_hash(dataHash, dataTypeOrOptions);
 }

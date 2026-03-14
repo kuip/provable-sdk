@@ -56,4 +56,11 @@ func TestUserKeyConfig(t *testing.T) {
 		}
 		SetUserKey(DefaultUserKey)
 	})
+
+	t.Run("api key aliases match user key config", func(t *testing.T) {
+		SetAPIKey(DefaultAPIKey)
+		if GetAPIKey() != DefaultUserKey {
+			t.Errorf("GetAPIKey() = %v, want %v", GetAPIKey(), DefaultUserKey)
+		}
+	})
 }

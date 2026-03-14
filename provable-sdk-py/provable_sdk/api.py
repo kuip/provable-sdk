@@ -18,7 +18,12 @@ from .types import ProveSingleHashResponse, GetRecordResponse
 _UNSET = object()
 
 
-def prove_single_hash(data_hash: str, data_type: str = None) -> ProveSingleHashResponse:
+def prove_single_hash(
+    data_hash: str,
+    data_type: str = None,
+    *,
+    api_key: str = None,
+) -> ProveSingleHashResponse:
     """
     Call Kayros API to prove a single hash
 
@@ -42,14 +47,19 @@ def prove_single_hash(data_hash: str, data_type: str = None) -> ProveSingleHashR
             "data_item": data_hash,
             "data_type": dt,
         },
-        headers=get_default_headers(),
+        headers=get_default_headers(api_key=api_key),
     )
 
     response.raise_for_status()
     return response.json()
 
 
-def get_record_by_hash(record_hash: str, data_type: Any = _UNSET) -> GetRecordResponse:
+def get_record_by_hash(
+    record_hash: str,
+    data_type: Any = _UNSET,
+    *,
+    api_key: str = None,
+) -> GetRecordResponse:
     """
     Get a Kayros record by hash
 
@@ -76,7 +86,7 @@ def get_record_by_hash(record_hash: str, data_type: Any = _UNSET) -> GetRecordRe
 
     response = requests.get(
         url,
-        headers=get_default_headers(),
+        headers=get_default_headers(api_key=api_key),
     )
 
     response.raise_for_status()

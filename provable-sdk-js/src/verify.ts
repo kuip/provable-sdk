@@ -5,6 +5,7 @@
 import { get_record_by_hash } from './api';
 import type { VerifyResult } from './types';
 import { KayrosEnvelope } from './envelope';
+import type { VerifyOptions } from './options';
 
 function normalizeRemoteDataItemHex(value: string): string | undefined {
   if (!value) return undefined;
@@ -52,7 +53,10 @@ function normalizeUuid(value: string | undefined): string | undefined {
  * @param envelope - Object containing data and kayros metadata
  * @returns Verification result with validity status and details
  */
-export async function verify<T = unknown>(envelope: KayrosEnvelope<T>): Promise<VerifyResult> {
+export async function verify<T = unknown>(
+  envelope: KayrosEnvelope<T>,
+  options?: VerifyOptions
+): Promise<VerifyResult> {
   try {
     const dataHashRaw = envelope.getDataHash();
 
@@ -93,11 +97,18 @@ export async function verify<T = unknown>(envelope: KayrosEnvelope<T>): Promise<
         let remoteRecord;
         let lastError: unknown;
         const delays = [1000, 2000, 2000];
-        const lookupCandidates = dataTypeCandidates.length > 0 ? dataTypeCandidates : [undefined];
+        const lookupCandidates = mergeLookupCandidates(
+          optionsToLookupCandidates(options),
+          dataTypeCandidates
+        );
         for (const dataType of lookupCandidates) {
           for (let attempt = 0; attempt < delays.length; attempt += 1) {
             try {
-              remoteRecord = await get_record_by_hash(kayrosHash, dataType);
+              remoteRecord = await get_record_by_hash(kayrosHash, {
+                dataType,
+                apiKey: options?.apiKey,
+                userKey: options?.userKey,
+              });
               lastError = undefined;
               break;
             } catch (err) {
@@ -215,4 +226,40 @@ export async function verify<T = unknown>(envelope: KayrosEnvelope<T>): Promise<
       error: `Verification error: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
+}
+
+function optionsToLookupCandidates(options?: VerifyOptions): Array<string | null | undefined> {
+  if (!options || options.dataType === undefined) {
+    return [];
+  }
+  if (Array.isArray(options.dataType)) {
+    return options.dataType;
+  }
+  return [options.dataType];
+}
+
+function mergeLookupCandidates(
+  explicitCandidates: Array<string | null | undefined>,
+  envelopeCandidates: Array<string | undefined>
+): Array<string | null | undefined> {
+  const merged: Array<string | null | undefined> = [];
+  const seen = new Set<string>();
+
+  const pushCandidate = (candidate: string | null | undefined) => {
+    const key = candidate === null ? '__NULL__' : candidate === undefined ? '__UNDEFINED__' : candidate;
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    merged.push(candidate);
+  };
+
+  explicitCandidates.forEach(pushCandidate);
+  envelopeCandidates.forEach(pushCandidate);
+
+  if (merged.length === 0) {
+    pushCandidate(undefined);
+  }
+
+  return merged;
 }

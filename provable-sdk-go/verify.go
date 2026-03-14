@@ -52,6 +52,11 @@ func isHex64(value string) bool {
 
 // Verify verifies data against a Kayros proof
 func Verify(envelope *KayrosEnvelope) *VerifyResult {
+	return VerifyWithOptions(envelope, nil)
+}
+
+// VerifyWithOptions verifies data against a Kayros proof with explicit request options.
+func VerifyWithOptions(envelope *KayrosEnvelope, opts *VerifyOptions) *VerifyResult {
 	dataHash := strings.ToLower(envelope.GetDataHash())
 
 	if dataHash == "" {
@@ -88,19 +93,26 @@ func Verify(envelope *KayrosEnvelope) *VerifyResult {
 	// If there's a Kayros hash, verify against remote record.
 	kayrosHash := envelope.GetKayrosHash()
 	dataTypeCandidates := envelope.GetDataTypeLookupCandidates()
-	if len(dataTypeCandidates) == 0 {
-		// Empty string signals "no explicit data_type", and GetRecordByHash omits it.
-		dataTypeCandidates = []string{""}
-	}
 	if kayrosHash != "" {
 		// Fetch remote record with retry logic and data_type fallbacks.
 		var remoteRecord *GetRecordResponse
 		var err error
 		delays := []time.Duration{1 * time.Second, 2 * time.Second, 2 * time.Second}
+		overrideCandidates := []string(nil)
+		apiKey := ""
+		if opts != nil {
+			overrideCandidates = opts.DataTypes
+			apiKey = opts.APIKey
+		}
+		lookupCandidates := mergeLookupCandidates(overrideCandidates, dataTypeCandidates)
 
-		for _, dataType := range dataTypeCandidates {
+		for _, dataType := range lookupCandidates {
 			for i := 0; i < len(delays); i++ {
-				remoteRecord, err = GetRecordByHash(kayrosHash, dataType)
+				remoteRecord, err = GetRecordByHashWithOptions(kayrosHash, &RequestOptions{
+					DataType:     dataType,
+					OmitDataType: dataType == "",
+					APIKey:       apiKey,
+				})
 				if err == nil {
 					break
 				}

@@ -10,6 +10,10 @@ go get github.com/provable/provable-sdk-go
 
 ## Usage
 
+### 1. Default usage
+
+Use the SDK with no explicit API key and no custom data type. This uses the default `provable_sdk` data type and the built-in default key.
+
 ```go
 package main
 
@@ -81,6 +85,72 @@ func main() {
 }
 ```
 
+### 2. Usage with API key and custom data type
+
+If your app stores a private API key and a project-specific data type in settings, pass them into the SDK through `RequestOptions` and `VerifyOptions`.
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+	"os"
+
+	provable "github.com/provable/provable-sdk-go"
+)
+
+func main() {
+	settings := struct {
+		APIKey   string
+		DataType string
+	}{
+		APIKey:   os.Getenv("KAYROS_API_KEY"),
+		DataType: "kayros_indexer_v1",
+	}
+
+	// Optional: set the key once for subsequent calls.
+	provable.SetAPIKey(settings.APIKey)
+
+	proof, err := provable.ProveSingleHashWithOptions("your_hash_here", &provable.RequestOptions{
+		APIKey:   settings.APIKey,
+		DataType: settings.DataType,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	record, err := provable.GetRecordByHashWithOptions("computed_hash_here", &provable.RequestOptions{
+		APIKey:   settings.APIKey,
+		DataType: settings.DataType,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(record)
+
+	envelope := &provable.KayrosEnvelope{
+		Data: "hello",
+		Kayros: provable.KayrosMetadata{
+			Hash:          "local_data_hash",
+			HashAlgorithm: "keccak256",
+			Timestamp: &provable.KayrosTimestamp{
+				Service:  "kayros",
+				Response: proof,
+			},
+		},
+	}
+
+	result := provable.VerifyWithOptions(envelope, &provable.VerifyOptions{
+		APIKey:    settings.APIKey,
+		DataTypes: []string{settings.DataType},
+	})
+	if !result.Valid {
+		log.Fatal(result.Error)
+	}
+}
+```
+
 ## API
 
 ### Hash Functions
@@ -96,14 +166,30 @@ func main() {
 - `ProveSingleHash(dataHash string) (*ProveSingleHashResponse, error)` - Prove a hash via Kayros API
 - `ProveData(data []byte) (*ProveSingleHashResponse, error)` - Hash and prove bytes
 - `ProveDataStr(s string) (*ProveSingleHashResponse, error)` - Hash and prove a string
+- `SetAPIKey(apiKey string)` - Set the API key used for subsequent requests
+
+Option-based variants:
+
+- `ProveSingleHashWithOptions(dataHash string, opts *RequestOptions)`
+- `ProveDataWithOptions(data []byte, opts *RequestOptions)`
+- `ProveDataStrWithOptions(s string, opts *RequestOptions)`
 
 ### Record Functions
 
 - `GetRecordByHash(recordHash string) (*GetRecordResponse, error)` - Get Kayros record by hash
 
+Option-based variant:
+
+- `GetRecordByHashWithOptions(recordHash string, opts *RequestOptions)`
+- Set `OmitDataType: true` in `RequestOptions` to omit the `data_type` lookup query parameter when needed.
+
 ### Verify Function
 
 - `Verify(envelope *KayrosEnvelope) *VerifyResult` - Verify data against Kayros proof
+
+Option-based variant:
+
+- `VerifyWithOptions(envelope *KayrosEnvelope, opts *VerifyOptions) *VerifyResult`
 
 ## KayrosEnvelope
 
@@ -116,19 +202,13 @@ envelope := &provable.KayrosEnvelope{
 }
 
 // Helper methods
-data, err := envelope.GetData()    // Get data as []byte (decodes base64 for V0)
+data, err := envelope.GetData()    // Get data as []byte
 envelope.GetDataHash()             // Get the data hash (data_item_hex)
 envelope.GetDataType()             // Get the data type (data_type_hex)
 envelope.GetKayrosHash()           // Get the Kayros hash (computed_hash_hex)
 envelope.GetTimeUUID()             // Get the time UUID (timeuuid_hex)
 envelope.GetHashAlgorithm()        // Get hash algorithm (defaults to "sha256")
-envelope.IsV0()                    // Check if V0 format (legacy, for email proofs)
 ```
-
-### Envelope Formats
-
-- **V1 (default)**: Hash stored in `Kayros.Hash`, data is plain string or object
-- **V0 (legacy)**: Hash in `Kayros.Data.DataItemHex`, data is base64-encoded bytes (used for email proofs)
 
 ## License
 

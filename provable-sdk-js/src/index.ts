@@ -64,15 +64,24 @@ export type {
   // API Response wrapper
   APIResponse,
 } from './types';
+export type {
+  ApiKeyOptions,
+  ProveOptions,
+  RecordLookupOptions,
+  VerifyOptions,
+} from './options';
 
 // Export config
 export {
   KayrosHost,
   API_ROUTES,
   DATA_TYPE,
+  DEFAULT_API_KEY,
   DEFAULT_USER_KEY,
   getKayrosUrl,
   getRecordUrl,
+  setApiKey,
+  getApiKey,
   setUserKey,
   getUserKey,
 } from './config';

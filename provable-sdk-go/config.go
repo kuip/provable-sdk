@@ -24,9 +24,12 @@ const (
 
 	// DefaultUserKey is the default user key used for X-User-Key header
 	DefaultUserKey = "0x0000000000000000000000000000000000000000000000000000000000000001"
+
+	// DefaultAPIKey is the default API key used for X-User-Key header
+	DefaultAPIKey = DefaultUserKey
 )
 
-var userKey = DefaultUserKey
+var apiKey = DefaultAPIKey
 
 // GetKayrosURL builds a full Kayros API URL from a route
 func GetKayrosURL(route string) string {
@@ -57,12 +60,29 @@ func FormatDataTypeForQuery(dataType string) string {
 
 // SetUserKey sets user key used in X-User-Key header.
 func SetUserKey(key string) {
-	userKey = key
+	apiKey = key
 }
 
 // GetUserKey returns current user key used in X-User-Key header.
 func GetUserKey() string {
-	return userKey
+	return apiKey
+}
+
+// SetAPIKey sets API key used in X-User-Key header.
+func SetAPIKey(key string) {
+	SetUserKey(key)
+}
+
+// GetAPIKey returns current API key used in X-User-Key header.
+func GetAPIKey() string {
+	return GetUserKey()
+}
+
+func resolveAPIKey(override string) string {
+	if override != "" {
+		return override
+	}
+	return GetAPIKey()
 }
 
 var hex64Pattern = regexp.MustCompile("^[0-9a-fA-F]{64}$")

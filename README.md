@@ -103,11 +103,57 @@ All SDKs default to using `"provable_sdk"` as the data type identifier, which is
 - Hex encoded: `0x70726f7661626c655f73646b`
 - Padded to 32 bytes: `70726f7661626c655f73646b00000000000000000000000000000000000000000000`
 
-You can override this on any API call:
+### 1. Default usage
+
+If you do not configure anything:
+
+- the SDK uses the built-in default key
+- the SDK uses the default `provable_sdk` data type
+
+Examples:
 
 **TypeScript:**
 ```typescript
-prove_single_hash(myHash, customDataType);
+prove_single_hash(myHash);
+```
+
+**Python:**
+```python
+prove_single_hash(my_hash)
+```
+
+**Go:**
+```go
+ProveSingleHash(myHash)
+```
+
+### 2. Usage with API key and custom data type
+
+If your application stores user-specific settings, pass the private API key and custom data type into the SDK before you prove or verify data.
+
+**TypeScript:**
+```typescript
+setApiKey(settings.apiKey);
+prove_single_hash(myHash, { apiKey: settings.apiKey, dataType: settings.dataType });
+```
+
+**Python:**
+```python
+set_api_key(settings["api_key"])
+prove_single_hash(my_hash, data_type=settings["data_type"], api_key=settings["api_key"])
+```
+
+**Go:**
+```go
+SetAPIKey(settings.APIKey)
+ProveSingleHashWithOptions(myHash, &RequestOptions{APIKey: settings.APIKey, DataType: settings.DataType})
+```
+
+You can override the data type on any API call:
+
+**TypeScript:**
+```typescript
+prove_single_hash(myHash, { dataType: customDataType });
 ```
 
 **Python:**

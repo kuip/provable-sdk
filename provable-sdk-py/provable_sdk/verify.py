@@ -4,12 +4,18 @@ Verification utilities
 
 import base64
 import time
+from typing import Iterable, List, Optional, Set, Union
 
 from .api import get_record_by_hash
 from .types import KayrosEnvelope, VerifyResult
 
 
-def verify(envelope: KayrosEnvelope) -> VerifyResult:
+def verify(
+    envelope: KayrosEnvelope,
+    *,
+    api_key: Optional[str] = None,
+    data_type: Optional[Union[str, Iterable[Optional[str]]]] = None,
+) -> VerifyResult:
     """
     Verify data against a Kayros proof
 
@@ -47,6 +53,9 @@ def verify(envelope: KayrosEnvelope) -> VerifyResult:
         # If there's a Kayros hash, verify against remote record
         kayros_hash = envelope.get_kayros_hash()
         data_type_candidates = envelope.get_data_type_lookup_candidates()
+        if data_type is not None:
+            explicit_candidates = [data_type] if isinstance(data_type, str) else list(data_type)
+            data_type_candidates = _merge_lookup_candidates(explicit_candidates, data_type_candidates)
         if not data_type_candidates:
             # None signals "omit data_type query param" in get_record_by_hash.
             data_type_candidates = [None]
@@ -58,7 +67,7 @@ def verify(envelope: KayrosEnvelope) -> VerifyResult:
                 for data_type in data_type_candidates:
                     for delay in (1, 2, 2):
                         try:
-                            remote_record = get_record_by_hash(kayros_hash, data_type)
+                            remote_record = get_record_by_hash(kayros_hash, data_type, api_key=api_key)
                             last_error = None
                             break
                         except Exception as exc:
@@ -173,3 +182,20 @@ def _normalize_remote_data_item_hex(value: str) -> str | None:
         return value.lower()
 
     return None
+
+
+def _merge_lookup_candidates(
+    explicit_candidates: List[Optional[str]],
+    envelope_candidates: List[str],
+) -> List[Optional[str]]:
+    merged: List[Optional[str]] = []
+    seen: Set[str] = set()
+
+    for candidate in [*explicit_candidates, *envelope_candidates]:
+        key = "__NONE__" if candidate is None else candidate
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(candidate)
+
+    return merged

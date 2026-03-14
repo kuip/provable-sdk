@@ -7,7 +7,12 @@ from .api import prove_single_hash
 from .types import ProveSingleHashResponse
 
 
-def prove_data(data: bytes, data_type: str = None) -> ProveSingleHashResponse:
+def prove_data(
+    data: bytes,
+    data_type: str = None,
+    *,
+    api_key: str = None,
+) -> ProveSingleHashResponse:
     """
     Prove data by computing its hash and calling Kayros API
 
@@ -19,10 +24,15 @@ def prove_data(data: bytes, data_type: str = None) -> ProveSingleHashResponse:
         The Kayros response
     """
     data_hash = keccak256(data)
-    return prove_single_hash(data_hash, data_type)
+    return prove_single_hash(data_hash, data_type, api_key=api_key)
 
 
-def prove_data_str(s: str, data_type: str = None) -> ProveSingleHashResponse:
+def prove_data_str(
+    s: str,
+    data_type: str = None,
+    *,
+    api_key: str = None,
+) -> ProveSingleHashResponse:
     """
     Prove string data by computing its hash and calling Kayros API
 
@@ -34,4 +44,4 @@ def prove_data_str(s: str, data_type: str = None) -> ProveSingleHashResponse:
         The Kayros response
     """
     data_hash = keccak256_str(s)
-    return prove_single_hash(data_hash, data_type)
+    return prove_single_hash(data_hash, data_type, api_key=api_key)

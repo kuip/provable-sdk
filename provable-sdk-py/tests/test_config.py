@@ -5,9 +5,12 @@ Tests for config module
 from provable_sdk.config import (
     get_kayros_url,
     DATA_TYPE,
+    DEFAULT_API_KEY,
     KAYROS_HOST,
     DEFAULT_USER_KEY,
+    get_api_key,
     get_user_key,
+    set_api_key,
     set_user_key,
 )
 
@@ -36,3 +39,8 @@ class TestUserKey:
         set_user_key("0xabc123")
         assert get_user_key() == "0xabc123"
         set_user_key(DEFAULT_USER_KEY)
+
+    def test_api_key_aliases(self):
+        set_api_key(DEFAULT_API_KEY)
+        assert get_api_key() == DEFAULT_USER_KEY
+        assert get_api_key() == get_user_key()

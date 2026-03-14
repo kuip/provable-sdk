@@ -14,11 +14,19 @@ import (
 // ProveSingleHash calls the Kayros API to prove a single hash
 // dataType is optional and defaults to "provable_sdk" padded to 32 bytes
 func ProveSingleHash(dataHash string, dataType ...string) (*ProveSingleHashResponse, error) {
-	url := GetKayrosURL(ProveSingleHashRoute)
+	var opts *RequestOptions
+	if len(dataType) > 0 {
+		opts = &RequestOptions{DataType: dataType[0]}
+	}
+	return ProveSingleHashWithOptions(dataHash, opts)
+}
 
-	dt := DataType
-	if len(dataType) > 0 && dataType[0] != "" {
-		dt = dataType[0]
+// ProveSingleHashWithOptions calls the Kayros API to prove a single hash with explicit request options.
+func ProveSingleHashWithOptions(dataHash string, opts *RequestOptions) (*ProveSingleHashResponse, error) {
+	url := GetKayrosURL(ProveSingleHashRoute)
+	dt, _, apiKey := resolveRequestOptions(opts)
+	if dt == "" {
+		dt = DataType
 	}
 
 	requestBody := map[string]string{
@@ -31,7 +39,7 @@ func ProveSingleHash(dataHash string, dataType ...string) (*ProveSingleHashRespo
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	resp, err := doJSONPost(url, jsonData)
+	resp, err := doJSONPostWithAPIKey(url, jsonData, apiKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request: %w", err)
 	}
@@ -52,18 +60,27 @@ func ProveSingleHash(dataHash string, dataType ...string) (*ProveSingleHashRespo
 
 // GetRecordByHash gets a Kayros record by hash
 func GetRecordByHash(recordHash string, dataType ...string) (*GetRecordResponse, error) {
+	var opts *RequestOptions
+	if len(dataType) > 0 {
+		opts = &RequestOptions{}
+		if dataType[0] == "" {
+			opts.OmitDataType = true
+		} else {
+			opts.DataType = dataType[0]
+		}
+	}
+	return GetRecordByHashWithOptions(recordHash, opts)
+}
+
+// GetRecordByHashWithOptions gets a Kayros record by hash with explicit request options.
+func GetRecordByHashWithOptions(recordHash string, opts *RequestOptions) (*GetRecordResponse, error) {
 	formattedHash := FormatHashForQuery(recordHash)
 	baseURL := GetKayrosURL(GetRecordByHashRoute)
+	dataType, includeDataType, apiKey := resolveRequestOptions(opts)
 	buildURL := func(hash string) string {
 		query := fmt.Sprintf("%s?hash=%s", baseURL, url.QueryEscape(hash))
-		// Backward-compatible behavior:
-		// - no arg: use default DATA_TYPE
-		// - arg == "": omit data_type
-		// - arg != "": use provided data_type
-		if len(dataType) == 0 {
-			query += "&data_type=" + url.QueryEscape(FormatDataTypeForQuery(DataType))
-		} else if dataType[0] != "" {
-			query += "&data_type=" + url.QueryEscape(FormatDataTypeForQuery(dataType[0]))
+		if includeDataType {
+			query += "&data_type=" + url.QueryEscape(FormatDataTypeForQuery(dataType))
 		}
 		return query
 	}
@@ -71,7 +88,7 @@ func GetRecordByHash(recordHash string, dataType ...string) (*GetRecordResponse,
 	var resp *http.Response
 	var err error
 	for attempt := 0; attempt < 3; attempt++ {
-		resp, err = doJSONGet(url)
+		resp, err = doJSONGetWithAPIKey(url, apiKey)
 		if err != nil {
 			return nil, fmt.Errorf("failed to make request: %w", err)
 		}

@@ -48,6 +48,15 @@ class TestProveData:
 
         assert hash1 == hash2
 
+    @patch("provable_sdk.prove.prove_single_hash")
+    def test_pass_api_key_to_prove_single_hash(self, mock_prove):
+        mock_prove.return_value = {"data": {"computed_hash_hex": "ghi789"}}
+
+        prove_data(b"test data", api_key="private-key-123")
+
+        _, kwargs = mock_prove.call_args
+        assert kwargs["api_key"] == "private-key-123"
+
 
 class TestProveDataStr:
     @patch("provable_sdk.prove.prove_single_hash")
@@ -84,3 +93,12 @@ class TestProveDataStr:
         assert len(hash_arg) == 64
         import re
         assert re.match(r"^[0-9a-f]{64}$", hash_arg)
+
+    @patch("provable_sdk.prove.prove_single_hash")
+    def test_pass_api_key_to_prove_single_hash(self, mock_prove):
+        mock_prove.return_value = {"data": {"computed_hash_hex": "ghi789"}}
+
+        prove_data_str("test string", api_key="private-key-456")
+
+        _, kwargs = mock_prove.call_args
+        assert kwargs["api_key"] == "private-key-456"

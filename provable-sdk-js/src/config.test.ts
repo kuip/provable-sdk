@@ -7,8 +7,11 @@ import {
   getKayrosUrl,
   DATA_TYPE,
   KayrosHost,
+  DEFAULT_API_KEY,
   DEFAULT_USER_KEY,
+  getApiKey,
   getUserKey,
+  setApiKey,
   setUserKey,
 } from './config';
 
@@ -42,6 +45,14 @@ describe('config', () => {
       setUserKey(customKey);
       expect(getUserKey()).toBe(customKey);
       setUserKey(DEFAULT_USER_KEY);
+    });
+  });
+
+  describe('api key aliases', () => {
+    it('should expose the api key alias constants and getters', () => {
+      setApiKey(DEFAULT_API_KEY);
+      expect(getApiKey()).toBe(DEFAULT_USER_KEY);
+      expect(getApiKey()).toBe(getUserKey());
     });
   });
 });

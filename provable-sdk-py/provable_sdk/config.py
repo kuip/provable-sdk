@@ -12,8 +12,9 @@ API_ROUTES = {
 # Default data type (provable_sdk padded to 32 bytes)
 DATA_TYPE = "provable_sdk\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 DEFAULT_USER_KEY = "0x0000000000000000000000000000000000000000000000000000000000000001"
+DEFAULT_API_KEY = DEFAULT_USER_KEY
 
-_user_key = DEFAULT_USER_KEY
+_api_key = DEFAULT_API_KEY
 
 
 def get_kayros_url(route: str) -> str:
@@ -23,20 +24,35 @@ def get_kayros_url(route: str) -> str:
 
 def set_user_key(key: str) -> None:
     """Set user key used in X-User-Key header."""
-    global _user_key
-    _user_key = key
+    global _api_key
+    _api_key = key
 
 
 def get_user_key() -> str:
     """Get current user key used in X-User-Key header."""
-    return _user_key
+    return _api_key
 
 
-def get_default_headers() -> dict:
+def set_api_key(key: str) -> None:
+    """Set API key used in X-User-Key header."""
+    set_user_key(key)
+
+
+def get_api_key() -> str:
+    """Get current API key used in X-User-Key header."""
+    return get_user_key()
+
+
+def resolve_api_key(api_key: str = None) -> str:
+    """Resolve an explicit API key override or fallback to the configured default."""
+    return api_key if api_key is not None else get_api_key()
+
+
+def get_default_headers(api_key: str = None) -> dict:
     """Get default request headers for Kayros API."""
     return {
         "Content-Type": "application/json",
-        "X-User-Key": get_user_key(),
+        "X-User-Key": resolve_api_key(api_key),
     }
 
 

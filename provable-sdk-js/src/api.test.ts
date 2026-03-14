@@ -9,7 +9,9 @@ import {
   API_ROUTES,
   DATA_TYPE,
   getRecordUrl,
+  DEFAULT_API_KEY,
   DEFAULT_USER_KEY,
+  setApiKey,
   setUserKey,
 } from './config';
 
@@ -77,6 +79,36 @@ describe('api', () => {
       );
     });
 
+    it('should allow overriding the api key per request', async () => {
+      const mockResponse = {
+        success: true,
+        hash: 'ghi789',
+      };
+
+      (global.fetch as any).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      await prove_single_hash('test_hash', {
+        dataType: 'provable_custom',
+        apiKey: 'private-key-123',
+      });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        getKayrosUrl(API_ROUTES.PROVE_SINGLE_HASH),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'X-User-Key': 'private-key-123',
+          }),
+          body: JSON.stringify({
+            data_item: 'test_hash',
+            data_type: 'provable_custom',
+          }),
+        })
+      );
+    });
+
     it('should throw error when API returns error status', async () => {
       (global.fetch as any).mockResolvedValueOnce({
         ok: false,
@@ -139,6 +171,36 @@ describe('api', () => {
       await expect(
         get_record_by_hash('nonexistent')
       ).rejects.toThrow('Kayros API error: 404 Not Found');
+    });
+
+    it('should allow overriding lookup options', async () => {
+      const mockResponse = {
+        data_item: 'abc123',
+        data_type: 'provable_custom',
+        hash_item: 'def456',
+        hash_type: 'sha3_256',
+        position: 1,
+        ts: '2024-01-01T00:00:00Z',
+      };
+
+      (global.fetch as any).mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      await get_record_by_hash('record_hash_123', {
+        dataType: null,
+        apiKey: 'private-key-456',
+      });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        `${getKayrosUrl(API_ROUTES.GET_RECORD_BY_HASH)}?hash=${encodeURIComponent('record_hash_123')}`,
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'X-User-Key': 'private-key-456',
+          }),
+        })
+      );
     });
   });
 });

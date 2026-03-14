@@ -42,6 +42,20 @@ describe('prove', () => {
       );
     });
 
+    it('should pass request options through to prove_single_hash', async () => {
+      const mockResponse = { data: { computed_hash_hex: 'ghi789' } };
+      const options = { dataType: 'provable_custom', apiKey: 'private-key-123' };
+      vi.spyOn(api, 'prove_single_hash').mockResolvedValue(mockResponse as any);
+
+      const data = new TextEncoder().encode('test data');
+      await prove_data(data, options);
+
+      expect(api.prove_single_hash).toHaveBeenCalledWith(
+        expect.any(String),
+        options
+      );
+    });
+
     it('should produce consistent hashes for same data', async () => {
       vi.spyOn(api, 'prove_single_hash').mockResolvedValue({} as any);
 
@@ -80,6 +94,19 @@ describe('prove', () => {
       expect(api.prove_single_hash).toHaveBeenCalledWith(
         expect.any(String),
         customDataType
+      );
+    });
+
+    it('should pass request options through to prove_single_hash', async () => {
+      const mockResponse = { data: { computed_hash_hex: 'ghi789' } };
+      const options = { dataType: 'provable_custom', apiKey: 'private-key-456' };
+      vi.spyOn(api, 'prove_single_hash').mockResolvedValue(mockResponse as any);
+
+      await prove_data_str('test string', options);
+
+      expect(api.prove_single_hash).toHaveBeenCalledWith(
+        expect.any(String),
+        options
       );
     });
 

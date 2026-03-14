@@ -2,6 +2,8 @@
  * Provable SDK Configuration
  */
 
+import type { ApiKeyOptions } from './options';
+
 export const KayrosHost = "https://kayros.provable.dev";
 
 export const API_ROUTES = {
@@ -12,25 +14,38 @@ export const API_ROUTES = {
 // Default data type (provable_sdk padded to 32 bytes)
 export const DATA_TYPE = "provable_sdk\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000";
 export const DEFAULT_USER_KEY = "0x0000000000000000000000000000000000000000000000000000000000000001";
+export const DEFAULT_API_KEY = DEFAULT_USER_KEY;
 
-let userKey = DEFAULT_USER_KEY;
+let apiKey = DEFAULT_API_KEY;
 
 export function getKayrosUrl(route: string): string {
   return KayrosHost + route;
 }
 
 export function setUserKey(key: string): void {
-  userKey = key;
+  apiKey = key;
 }
 
 export function getUserKey(): string {
-  return userKey;
+  return apiKey;
 }
 
-export function getDefaultHeaders(): Record<string, string> {
+export function setApiKey(key: string): void {
+  setUserKey(key);
+}
+
+export function getApiKey(): string {
+  return getUserKey();
+}
+
+export function resolveApiKey(options?: ApiKeyOptions): string {
+  return options?.apiKey ?? options?.userKey ?? getApiKey();
+}
+
+export function getDefaultHeaders(options?: ApiKeyOptions): Record<string, string> {
   return {
     'Content-Type': 'application/json',
-    'X-User-Key': getUserKey(),
+    'X-User-Key': resolveApiKey(options),
   };
 }
 
