@@ -1,5 +1,5 @@
 .PHONY: help test test-js test-py test-go coverage coverage-js coverage-py coverage-go install install-js install-py install-go install-ui clean \
-	build build-js build-py build-go build-ui publish publish-js publish-ui publish-py publish-go publish-all \
+	build build-js build-py build-go build-ui publish publish-js publish-proof publish-ui publish-py publish-go publish-all \
 	publish-dry-run publish-dry-run-js publish-dry-run-py tag-go version-js version-py version-go
 
 # Default target
@@ -31,6 +31,7 @@ help:
 	@echo ""
 	@echo "  make publish       - Publish all SDK packages (use with caution!)"
 	@echo "  make publish-js    - Publish TypeScript package to npm"
+	@echo "  make publish-proof - Publish Proof package to npm"
 	@echo "  make publish-ui    - Publish UI package to npm"
 	@echo "  make publish-py    - Publish Python package to PyPI"
 	@echo "  make publish-go    - Tag and push Go module (defaults to JS version; override with VERSION=vX.Y.Z)"
@@ -193,11 +194,22 @@ publish-js: test-js
 	echo ""; \
 	echo "Press Ctrl+C to cancel, or Enter to continue..."; \
 	read -r; \
-	cd provable-sdk-js && npm publish && \
+	cd provable-sdk-js && npm publish --access public && \
 	cd .. && git tag -a "js-v$$VERSION" -m "Release TypeScript SDK v$$VERSION" && \
 	git push origin main && \
 	git push origin "js-v$$VERSION"
 	@echo "✓ TypeScript SDK published and tagged!"
+
+publish-proof:
+	@echo "Publishing Proof package to npm..."
+	@VERSION=$$(cd provable-proof-js && node -p "require('./package.json').version"); \
+	echo "Version: $$VERSION"; \
+	echo "⚠️  This will publish to npm"; \
+	echo ""; \
+	echo "Press Ctrl+C to cancel, or Enter to continue..."; \
+	read -r; \
+	cd provable-proof-js && npm publish --access public
+	@echo "✓ Proof package published!"
 
 publish-ui:
 	@echo "Publishing UI package to npm..."
@@ -207,7 +219,7 @@ publish-ui:
 	echo ""; \
 	echo "Press Ctrl+C to cancel, or Enter to continue..."; \
 	read -r; \
-	cd provable-sdk-ui && npm publish
+	cd provable-sdk-ui && npm publish --access public
 	@echo "✓ UI package published!"
 
 publish-py: test-py build-py
@@ -262,11 +274,12 @@ publish-all:
 	@echo "Press Ctrl+C to cancel, or Enter to continue..."
 	@read -r
 	@make publish-js
+	@make publish-proof
 	@make publish-ui
 	@make publish-py
 	@make publish-go
 	@echo ""
-	@echo "✓ JavaScript, UI, Python, and Go SDKs published!"
+	@echo "✓ All SDK packages published!"
 
 # Dry run publish (test without actually publishing)
 publish-dry-run: publish-dry-run-js publish-dry-run-py
@@ -275,7 +288,7 @@ publish-dry-run: publish-dry-run-js publish-dry-run-py
 
 publish-dry-run-js:
 	@echo "Dry run: Publishing TypeScript SDK..."
-	@cd provable-sdk-js && npm publish --dry-run
+	@cd provable-sdk-js && npm publish --access public --dry-run
 	@echo "✓ TypeScript dry run complete!"
 
 publish-dry-run-py: build-py
