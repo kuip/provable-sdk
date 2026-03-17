@@ -84,6 +84,8 @@ export {
   DEFAULT_API_KEY,
   DEFAULT_USER_KEY,
   getKayrosUrl,
+  getKayrosHost,
+  setKayrosHost,
   getRecordUrl,
   setApiKey,
   getApiKey,

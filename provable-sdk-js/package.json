@@ -10,7 +10,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
   },
-  "keywords": ["provable", "kayros", "keccak256", "hash", "blockchain"],
+  "keywords": ["provable", "kayros", "keccak256", "hash", "blockchain", "notarization", "cryptographic proof", "evidence", "cryptographic proof of inclusion"],
   "author": "Provable",
   "license": "MIT",
   "dependencies": {

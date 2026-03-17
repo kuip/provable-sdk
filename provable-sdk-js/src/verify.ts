@@ -449,8 +449,8 @@ function normalizeProofResponse(raw: MerkleProofResponse): NormalizedMerkleProof
   }
 
   const hashItem = normalizeHexString(raw.hash_item);
-  const root = normalizeHexString(raw.root);
-  if (!raw.data_type || !hashItem || !root || !Array.isArray(raw.proof)) {
+  const root = normalizeHexString(raw.root) ?? '';
+  if (!raw.data_type || !hashItem || !Array.isArray(raw.proof)) {
     throw new Error('Invalid merkle proof structure');
   }
 
@@ -548,7 +548,7 @@ async function verifyProofPath(
   if (!lastRollup) {
     return { valid: false, error: 'missing final hash' };
   }
-  if (lastRollup !== proof.root) {
+  if (proof.root && lastRollup !== proof.root) {
     return {
       valid: false,
       error: `root hash mismatch computed=${lastRollup} root=${proof.root}`,

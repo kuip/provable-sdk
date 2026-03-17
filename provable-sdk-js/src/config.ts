@@ -4,7 +4,17 @@
 
 import type { ApiKeyOptions } from './options';
 
-export const KayrosHost = "https://kayros.provable.dev";
+let kayrosHost = "https://kayros.provable.dev";
+
+export { kayrosHost as KayrosHost };
+
+export function setKayrosHost(host: string): void {
+  kayrosHost = host;
+}
+
+export function getKayrosHost(): string {
+  return kayrosHost;
+}
 
 export const API_ROUTES = {
   PROVE_SINGLE_HASH: "/api/lightnet/grpc/single-hash",
@@ -24,7 +34,7 @@ export const DEFAULT_API_KEY = DEFAULT_USER_KEY;
 let apiKey = DEFAULT_API_KEY;
 
 export function getKayrosUrl(route: string): string {
-  return KayrosHost + route;
+  return kayrosHost + route;
 }
 
 export function setUserKey(key: string): void {
@@ -62,7 +72,7 @@ export function getDefaultHeaders(options?: ApiKeyOptions): Record<string, strin
 export function getRecordUrl(hash: string, dataType?: string): string {
   const dt = formatDataTypeForQuery(dataType ?? DATA_TYPE);
   const recordHash = formatHashForQuery(hash);
-  return `${KayrosHost}${API_ROUTES.GET_RECORD_BY_HASH}?hash=${encodeURIComponent(recordHash)}&data_type=${encodeURIComponent(dt)}`;
+  return `${kayrosHost}${API_ROUTES.GET_RECORD_BY_HASH}?hash=${encodeURIComponent(recordHash)}&data_type=${encodeURIComponent(dt)}`;
 }
 
 /**
