@@ -2,7 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { ProofViewer } from './components/ProofViewer';
 import './styles.css';
-import { KayrosEnvelope } from 'provable-sdk-js';
+import { KayrosEnvelope } from 'provable-proof-js';
 
 export function mountProofViewer(
   element: HTMLElement,

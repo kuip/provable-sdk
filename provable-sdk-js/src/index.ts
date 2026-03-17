@@ -12,7 +12,7 @@ export { prove_single_hash, get_record_by_hash } from './api';
 export { prove_data, prove_data_str } from './prove';
 
 // Export verify function
-export { verify } from './verify';
+export { verify, verifyWithInclusion } from './verify';
 
 // Export Lightnet API functions
 export {
@@ -24,24 +24,28 @@ export {
   browse_table,
   get_record,
   get_record_with_prev_hash,
+  get_record_by_data_item,
   verify_hash,
   compute_hash_from_hex,
   send_single_grpc_request,
-  generate_merkle_proof,
-  verify_merkle_proof,
+  get_merkle_proof,
+  verify_hash_existence,
+  verify_hash_batch,
 } from './lightnet';
-
-// Export KayrosEnvelope class
-export { KayrosEnvelope } from './envelope';
 
 // Export types
 export type {
-  KayrosMetadata,
-  KayrosMetadataV0,
-  AnyKayrosMetadata,
   ProveSingleHashResponse,
   GetRecordResponse,
+  GetRecordByDataItemResponse,
   VerifyResult,
+  VerifyRequest,
+  VerifyWithInclusionRequest,
+  VerifyLevelCheck,
+  NormalizedKayrosRecord,
+  NormalizedMerkleProof,
+  LevelCheckResult,
+  BatchExistenceCheckResult,
   // Database types
   DatabaseQuery,
   HashRecord,
@@ -53,14 +57,16 @@ export type {
   HashVerifyRequest,
   HashVerifyResult,
   ComputeHashRequest,
+  ComputeHashResponse,
+  HashExistenceRequest,
+  HashExistenceResponse,
+  HashBatchRequest,
+  HashBatchResponse,
   // gRPC types
   SingleHashRequest,
   SingleHashResponse,
   // Merkle proof types
-  GenerateMerkleProofRequest,
-  MerkleProof,
-  VerifyMerkleProofRequest,
-  MerkleProofVerificationResult,
+  MerkleProofResponse,
   // API Response wrapper
   APIResponse,
 } from './types';
@@ -68,7 +74,6 @@ export type {
   ApiKeyOptions,
   ProveOptions,
   RecordLookupOptions,
-  VerifyOptions,
 } from './options';
 
 // Export config

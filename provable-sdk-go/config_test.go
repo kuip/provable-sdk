@@ -1,9 +1,6 @@
 package provable
 
-import (
-	"strings"
-	"testing"
-)
+import "testing"
 
 func TestGetKayrosURL(t *testing.T) {
 	t.Run("build correct URL from route", func(t *testing.T) {
@@ -30,12 +27,9 @@ func TestGetKayrosURL(t *testing.T) {
 }
 
 func TestDataTypeConstant(t *testing.T) {
-	t.Run("padded to 32 bytes", func(t *testing.T) {
-		if len([]byte(DataType)) != 32 {
-			t.Errorf("DataType length = %v, want 32 bytes", len([]byte(DataType)))
-		}
-		if strings.TrimRight(DataType, "\x00") != "provable_sdk" {
-			t.Error("DataType doesn't match padded provable_sdk label")
+	t.Run("plain default label", func(t *testing.T) {
+		if DataType != "provable_sdk" {
+			t.Errorf("DataType = %q, want %q", DataType, "provable_sdk")
 		}
 	})
 }

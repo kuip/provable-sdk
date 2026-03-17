@@ -4,6 +4,12 @@ import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      'provable-proof-js': resolve(__dirname, '../provable-proof-js/src/index.ts'),
+      'provable-sdk-js': resolve(__dirname, '../provable-sdk-js/src/index.ts'),
+    },
+  },
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),

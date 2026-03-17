@@ -25,9 +25,8 @@ class TestGetKayrosUrl:
 
 
 class TestDataTypeConstant:
-    def test_is_padded_label(self):
-        assert DATA_TYPE.replace("\x00", "") == "provable_sdk"
-        assert len(DATA_TYPE.encode("utf-8")) == 32
+    def test_is_plain_default_label(self):
+        assert DATA_TYPE == "provable_sdk"
 
 
 class TestUserKey:

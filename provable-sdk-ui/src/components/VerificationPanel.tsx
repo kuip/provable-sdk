@@ -1,6 +1,6 @@
 import React from 'react';
 import { useKayrosVerification, type VerificationState } from '../hooks/useKayrosVerification';
-import { KayrosEnvelope } from 'provable-sdk-js';
+import { KayrosEnvelope } from 'provable-proof-js';
 
 export function VerificationPanel({
   envelope,

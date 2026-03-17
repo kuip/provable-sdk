@@ -4,6 +4,7 @@
 
 export interface ApiKeyOptions {
   apiKey?: string;
+  api_key?: string;
   userKey?: string;
 }
 
@@ -13,8 +14,4 @@ export interface ProveOptions extends ApiKeyOptions {
 
 export interface RecordLookupOptions extends ApiKeyOptions {
   dataType?: string | null;
-}
-
-export interface VerifyOptions extends ApiKeyOptions {
-  dataType?: string | string[] | null;
 }

@@ -1,7 +1,6 @@
 package provable
 
 import (
-	"encoding/hex"
 	"fmt"
 	"regexp"
 	"testing"
@@ -14,7 +13,6 @@ func TestFullCycleIntegration(t *testing.T) {
 	// Step 1: Start with test data
 	testData := fmt.Sprintf("Integration test data %d", time.Now().UnixMilli())
 	testDataType := "provable_sdk_tests"
-	testDataTypeHex := hex.EncodeToString([]byte(testDataType))
 
 	// Step 2: Hash the data
 	dataHash := Keccak256Str(testData)
@@ -43,24 +41,12 @@ func TestFullCycleIntegration(t *testing.T) {
 
 	computedHash := kayrosResponse.Hash
 
-	// Step 4: Build proof object (envelope)
-	envelope := &KayrosEnvelope{
-		Data: testData,
-		Kayros: KayrosMetadata{
-			Hash:          dataHash,
-			HashAlgorithm: "keccak256",
-			Data: &KayrosMetadataV0Data{
-				DataTypeHex: testDataTypeHex,
-			},
-			Timestamp: &KayrosTimestamp{
-				Service:  "kayros",
-				Response: kayrosResponse,
-			},
-		},
-	}
-
-	// Step 5: Verify the proof
-	verifyResult := Verify(envelope)
+	// Step 4: Verify the record directly against Kayros APIs.
+	verifyResult := Verify(VerifyRequest{
+		DataType:   testDataType,
+		DataItem:   dataHash,
+		KayrosHash: computedHash,
+	})
 	if verifyResult == nil {
 		t.Fatal("verifyResult is nil")
 	}
@@ -73,26 +59,20 @@ func TestFullCycleIntegration(t *testing.T) {
 		t.Errorf("Unexpected error: %v", verifyResult.Error)
 	}
 
-	// Verify hash matches
 	if verifyResult.Details == nil {
 		t.Fatal("verifyResult.Details is nil")
 	}
-	if !verifyResult.Details.HashMatch {
-		t.Error("Hash does not match")
+	if !verifyResult.Details.DataItemMatch || !verifyResult.Details.KayrosHashMatch || !verifyResult.Details.RecordHashMatch {
+		t.Error("verification details do not match record inputs")
 	}
-	if verifyResult.Details.ComputedHash != dataHash {
-		t.Errorf("computedHash = %v, want %v", verifyResult.Details.ComputedHash, dataHash)
+	if verifyResult.Details.Record == nil {
+		t.Fatal("verifyResult.Details.Record is nil")
 	}
-	if verifyResult.Details.DataHash != dataHash {
-		t.Errorf("dataHash = %v, want %v", verifyResult.Details.DataHash, dataHash)
+	if verifyResult.Details.Record.DataItem != dataHash {
+		t.Errorf("record data_item = %v, want %v", verifyResult.Details.Record.DataItem, dataHash)
 	}
-
-	// Verify remote record exists and matches
-	if !verifyResult.Details.RemoteMatch {
-		t.Error("Remote record does not match")
-	}
-	if verifyResult.Details.RemoteHash != dataHash {
-		t.Errorf("remoteHash = %v, want %v", verifyResult.Details.RemoteHash, dataHash)
+	if verifyResult.Details.Record.KayrosHash != computedHash {
+		t.Errorf("record kayros_hash = %v, want %v", verifyResult.Details.Record.KayrosHash, computedHash)
 	}
 
 	// Step 6: Verify we can retrieve the record by hash using the computed hash from Kayros

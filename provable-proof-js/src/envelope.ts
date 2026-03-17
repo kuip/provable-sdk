@@ -1,4 +1,4 @@
-import { keccak256, sha256 } from './hash';
+import { keccak256, sha256 } from 'provable-sdk-js';
 import type { AnyKayrosMetadata } from './types';
 
 type HashAlgorithm = 'sha256' | 'keccak256';
@@ -668,4 +668,3 @@ export class KayrosEnvelope<T = unknown> {
     return hashBytes(primaryBytes, preferred);
   }
 }
-

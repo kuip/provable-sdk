@@ -14,13 +14,17 @@ import type {
   HashVerifyRequest,
   HashVerifyResult,
   ComputeHashRequest,
+  ComputeHashResponse,
   SingleHashRequest,
   SingleHashResponse,
-  GenerateMerkleProofRequest,
-  MerkleProof,
-  VerifyMerkleProofRequest,
-  MerkleProofVerificationResult,
+  GetRecordByDataItemResponse,
+  MerkleProofResponse,
+  HashExistenceRequest,
+  HashExistenceResponse,
+  HashBatchRequest,
+  HashBatchResponse,
 } from './types';
+import type { ApiKeyOptions } from './options';
 
 // Database Operations
 
@@ -184,6 +188,31 @@ export async function get_record_with_prev_hash(uuid: string): Promise<APIRespon
   return await response.json() as APIResponse<DatabaseRecord>;
 }
 
+/**
+ * Get records by data type and data item.
+ */
+export async function get_record_by_data_item(
+  dataType: string,
+  dataItem: string,
+  options?: ApiKeyOptions & { limit?: number }
+): Promise<GetRecordByDataItemResponse> {
+  let query = `${API_ROUTES.GET_RECORD_BY_DATA_ITEM}?data_type=${encodeURIComponent(dataType)}&data_item=${encodeURIComponent(dataItem)}`;
+  if (typeof options?.limit === 'number' && options.limit > 0) {
+    query += `&limit=${options.limit}`;
+  }
+
+  const response = await fetch(getKayrosUrl(query), {
+    method: 'GET',
+    headers: getDefaultHeaders(options),
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`);
+  }
+
+  return await response.json() as GetRecordByDataItemResponse;
+}
+
 // Hash Operations
 
 /**
@@ -212,12 +241,15 @@ export async function verify_hash(request: HashVerifyRequest): Promise<APIRespon
  * @param request - Compute hash request
  * @returns Promise with computed hash result
  */
-export async function compute_hash_from_hex(request: ComputeHashRequest): Promise<APIResponse<HashVerifyResult>> {
-  const url = getKayrosUrl('/api/compute-hash-from-hex');
+export async function compute_hash_from_hex(
+  request: ComputeHashRequest,
+  options?: ApiKeyOptions
+): Promise<ComputeHashResponse> {
+  const url = getKayrosUrl(API_ROUTES.COMPUTE_HASH_FROM_HEX);
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: getDefaultHeaders(),
+    headers: getDefaultHeaders(options),
     body: JSON.stringify(request),
   });
 
@@ -225,7 +257,7 @@ export async function compute_hash_from_hex(request: ComputeHashRequest): Promis
     throw new Error(`API error: ${response.status} ${response.statusText}`);
   }
 
-  return await response.json() as APIResponse<HashVerifyResult>;
+  return await response.json() as ComputeHashResponse;
 }
 
 // gRPC Operations
@@ -258,33 +290,38 @@ export async function send_single_grpc_request(request: SingleHashRequest): Prom
  * @param request - Merkle proof generation request
  * @returns Promise with Merkle proof
  */
-export async function generate_merkle_proof(request: GenerateMerkleProofRequest): Promise<APIResponse<MerkleProof>> {
-  const url = getKayrosUrl('/api/merkle/generate-proof');
+export async function get_merkle_proof(
+  request: { data_type: string; hash?: string; position?: number },
+  options?: ApiKeyOptions
+): Promise<MerkleProofResponse> {
+  const params = new URLSearchParams();
+  params.set('data_type', request.data_type);
+  if (request.hash) {
+    params.set('hash', request.hash);
+  }
+  if (typeof request.position === 'number') {
+    params.set('position', String(request.position));
+  }
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: getDefaultHeaders(),
-    body: JSON.stringify(request),
+  const response = await fetch(getKayrosUrl(`${API_ROUTES.GET_MERKLE_PROOF}?${params.toString()}`), {
+    method: 'GET',
+    headers: getDefaultHeaders(options),
   });
 
   if (!response.ok) {
     throw new Error(`API error: ${response.status} ${response.statusText}`);
   }
 
-  return await response.json() as APIResponse<MerkleProof>;
+  return await response.json() as MerkleProofResponse;
 }
 
-/**
- * Verify a Merkle proof
- * @param request - Merkle proof verification request
- * @returns Promise with verification result
- */
-export async function verify_merkle_proof(request: VerifyMerkleProofRequest): Promise<APIResponse<MerkleProofVerificationResult>> {
-  const url = getKayrosUrl('/api/merkle/verify-proof');
-
-  const response = await fetch(url, {
+export async function verify_hash_existence(
+  request: HashExistenceRequest,
+  options?: ApiKeyOptions
+): Promise<HashExistenceResponse> {
+  const response = await fetch(getKayrosUrl(API_ROUTES.VERIFY_HASH_EXISTENCE), {
     method: 'POST',
-    headers: getDefaultHeaders(),
+    headers: getDefaultHeaders(options),
     body: JSON.stringify(request),
   });
 
@@ -292,5 +329,22 @@ export async function verify_merkle_proof(request: VerifyMerkleProofRequest): Pr
     throw new Error(`API error: ${response.status} ${response.statusText}`);
   }
 
-  return await response.json() as APIResponse<MerkleProofVerificationResult>;
+  return await response.json() as HashExistenceResponse;
+}
+
+export async function verify_hash_batch(
+  request: HashBatchRequest,
+  options?: ApiKeyOptions
+): Promise<HashBatchResponse> {
+  const response = await fetch(getKayrosUrl(API_ROUTES.VERIFY_HASH_BATCH), {
+    method: 'POST',
+    headers: getDefaultHeaders(options),
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status} ${response.statusText}`);
+  }
+
+  return await response.json() as HashBatchResponse;
 }

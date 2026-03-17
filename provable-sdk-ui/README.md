@@ -2,11 +2,13 @@
 
 Reusable proof UI components for Provable/Kayros proofs.
 
+`provable-sdk-ui` expects proof envelopes from `provable-proof-js`.
+
 ## React usage
 
 ```tsx
 import { ProofViewer } from 'provable-sdk-ui';
-import { KayrosEnvelope } from 'provable-sdk-js';
+import { KayrosEnvelope } from 'provable-proof-js';
 import 'provable-sdk-ui/styles.css';
 
 const envelope = new KayrosEnvelope(data, kayrosMetadata);

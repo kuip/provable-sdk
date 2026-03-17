@@ -1,10 +1,15 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { verify } from './verify';
-import { KayrosEnvelope } from './envelope';
-import { keccak256_str } from './hash';
+import { createHash } from 'node:crypto';
+
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { verify, verifyWithInclusion } from './verify';
 import { DEFAULT_USER_KEY, setUserKey } from './config';
 
 global.fetch = vi.fn();
+
+function toBase64(hex: string): string {
+  return Buffer.from(hex, 'hex').toString('base64');
+}
 
 describe('verify', () => {
   beforeEach(() => {
@@ -12,48 +17,197 @@ describe('verify', () => {
     setUserKey(DEFAULT_USER_KEY);
   });
 
-  it('should allow overriding lookup options during verification', async () => {
-    const payload = 'hello provable';
-    const dataHash = keccak256_str(payload);
-    const envelope = new KayrosEnvelope(payload, {
-      hash: dataHash,
-      hashAlgorithm: 'keccak256',
-      timestamp: {
-        service: 'kayros',
-        response: {
-          response: {
-            hash: 'kayros_hash_123',
-            data_type: 'proof_type',
-          },
-        },
-      },
-    });
+  it('verifies a record by kayros_hash with an explicit api key and data type', async () => {
+    const dataItem = '11'.repeat(32);
+    const kayrosHash = '22'.repeat(32);
 
-    (global.fetch as any).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        data_item: dataHash,
-        data_type: 'proof_type',
-        hash_item: 'remote_hash',
-        hash_type: 'sha3_256',
-        position: 1,
-        ts: '123e4567e89b12d3a456426614174000',
-      }),
-    });
+    (global.fetch as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data_item: toBase64(dataItem),
+          data_type: 'proof_type',
+          hash_item: toBase64(kayrosHash),
+          hash_type: 'sha256',
+          position: 3,
+          prev_hash: toBase64('00'.repeat(32)),
+          ts: '123e4567-e89b-12d3-a456-426614174000',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          hash: kayrosHash,
+          hash_type: 'sha256',
+          input_size: 92,
+        }),
+      });
 
-    const result = await verify(envelope, {
-      dataType: null,
+    const result = await verify({
+      data_type: 'proof_type',
+      kayros_hash: kayrosHash,
+      data_item: dataItem,
       apiKey: 'private-key-123',
     });
 
     expect(result.valid).toBe(true);
-    expect(global.fetch).toHaveBeenCalledWith(
-      'https://kayros.provable.dev/api/lightnet/database/record-by-hash?hash=kayros_hash_123',
+    expect(result.details?.recordFound).toBe(true);
+    expect(result.details?.recordHashMatch).toBe(true);
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      1,
+      'https://kayros.provable.dev/api/lightnet/database/record-by-hash?hash=IiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiI%3D&data_type=proof_type',
       expect.objectContaining({
         headers: expect.objectContaining({
           'X-User-Key': 'private-key-123',
         }),
-      })
+      }),
     );
+  });
+
+  it('fails when data_item lookup is ambiguous', async () => {
+    const dataItem = '33'.repeat(32);
+
+    (global.fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        count: 2,
+        records: [
+          {
+            data_item: toBase64(dataItem),
+            data_type: 'proof_type',
+            hash_item: toBase64('44'.repeat(32)),
+            hash_type: 'sha256',
+            position: 1,
+            prev_hash: toBase64('00'.repeat(32)),
+            ts: '123e4567-e89b-12d3-a456-426614174000',
+          },
+          {
+            data_item: toBase64(dataItem),
+            data_type: 'proof_type',
+            hash_item: toBase64('55'.repeat(32)),
+            hash_type: 'sha256',
+            position: 2,
+            prev_hash: toBase64('44'.repeat(32)),
+            ts: '123e4567-e89b-12d3-a456-426614174001',
+          },
+        ],
+      }),
+    });
+
+    const result = await verify({
+      data_type: 'proof_type',
+      data_item: dataItem,
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain('Multiple records found');
+  });
+
+  it('verifies merkle inclusion with level checks and batch existence checks', async () => {
+    const dataItem = '11'.repeat(32);
+    const kayrosHash = '22'.repeat(32);
+    const siblingHash = '33'.repeat(32);
+    const rootHash = createHash('sha256')
+      .update(Buffer.concat([Buffer.from(kayrosHash, 'hex'), Buffer.from(siblingHash, 'hex')]))
+      .digest('hex');
+
+    (global.fetch as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data_item: toBase64(dataItem),
+          data_type: 'proof_type',
+          hash_item: toBase64(kayrosHash),
+          hash_type: 'sha256',
+          position: 0,
+          prev_hash: toBase64('00'.repeat(32)),
+          ts: '123e4567-e89b-12d3-a456-426614174000',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          hash: kayrosHash,
+          hash_type: 'sha256',
+          input_size: 92,
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data_type: 'proof_type',
+          hash_item: kayrosHash,
+          proof: [kayrosHash, siblingHash, rootHash],
+          root: rootHash,
+          position: 0,
+          levels: 2,
+          level_counts: [2, 1],
+          level_starts: [0, 0],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          exists: true,
+          level: 1,
+          position: 0,
+          data_type: 'proof_type',
+          found_hash: rootHash,
+          message: 'ok',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          exists: true,
+          level: 0,
+          position: 0,
+          data_type: 'proof_type',
+          found_hash: kayrosHash,
+          message: 'ok',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data_type: 'proof_type',
+          level: 0,
+          start: 0,
+          count: 2,
+          results: [1, 1],
+          matches: 2,
+          mismatches: 0,
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data_type: 'proof_type',
+          level: 1,
+          start: 0,
+          count: 1,
+          results: [1],
+          matches: 1,
+          mismatches: 0,
+        }),
+      });
+
+    const result = await verifyWithInclusion({
+      data_type: 'proof_type',
+      kayros_hash: kayrosHash,
+      trusted_root_hash: rootHash,
+      trusted_level: 1,
+      trusted_position: 0,
+      verify_batch_existence: true,
+      level_checks: [{ level: 0, position: 0 }],
+      apiKey: 'private-key-789',
+    });
+
+    expect(result.valid).toBe(true);
+    expect(result.details?.proofPathMatch).toBe(true);
+    expect(result.details?.batchExistenceMatch).toBe(true);
+    expect(result.details?.levelChecks?.[0].valid).toBe(true);
+    expect(result.details?.trustedLevelMatch).toBe(true);
   });
 });

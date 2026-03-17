@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 import {
-  verify,
   getRecordUrl,
-  KayrosEnvelope,
   type GetRecordResponse
 } from 'provable-sdk-js';
+import { KayrosEnvelope, verifyEnvelope } from 'provable-proof-js';
 
 export interface VerificationState {
   loading: boolean;
@@ -106,42 +105,12 @@ function formatIsoNsToLocal(isoNs?: string): string | undefined {
   return `${date.toLocaleString()}.${nanos}`;
 }
 
-function resolveTimestampResponse(envelope: KayrosEnvelope): any {
-  return (envelope as any)?.kayros?.timestamp?.response;
-}
-
 function resolveKayrosHash(envelope: KayrosEnvelope): string | undefined {
-  const fromEnvelope = envelope.getKayrosHash();
-  if (fromEnvelope) {
-    return fromEnvelope;
-  }
-
-  const response = resolveTimestampResponse(envelope);
-  const registerResponse = response?.response ?? response;
-  return registerResponse?.hash
-    || registerResponse?.data?.computed_hash_hex
-    || registerResponse?.computed_hash_hex
-    || registerResponse?.data?.hash
-    || registerResponse?.data?.computed_hash
-    || registerResponse?.computed_hash
-    || undefined;
+  return envelope.getKayrosHash();
 }
 
 function resolveDataType(envelope: KayrosEnvelope): string | undefined {
-  const fromEnvelope = envelope.getDataType();
-  if (fromEnvelope) {
-    return fromEnvelope;
-  }
-
-  const response = resolveTimestampResponse(envelope);
-  const registerResponse = response?.response ?? response;
-  const timestampResponse = resolveTimestampResponse(envelope);
-
-  return registerResponse?.data_type
-    || registerResponse?.data?.data_type
-    || timestampResponse?.data?.data_type
-    || envelope.getDataTypeLabel()
-    || undefined;
+  return envelope.getDataType() || envelope.getDataTypeLabel() || undefined;
 }
 
 export function useKayrosVerification(envelope?: KayrosEnvelope): VerificationState {
@@ -162,16 +131,19 @@ export function useKayrosVerification(envelope?: KayrosEnvelope): VerificationSt
         const dataHash = normalized.getDataHash();
         const kayrosHash = resolveKayrosHash(normalized);
         const dataType = resolveDataType(normalized);
-        const verification = await verify(normalized);
+        const verification = await verifyEnvelope(normalized);
+        const details = verification.details;
 
         let recordUrl: string | undefined;
-        let remoteRecord: GetRecordResponse | undefined = verification.details?.remoteRecord;
-        let remoteMatch: boolean | undefined = verification.details?.remoteMatch;
+        let remoteRecord: GetRecordResponse | undefined = details?.record?.raw;
+        let remoteMatch: boolean | undefined = details?.recordFound
+          ? details.dataItemMatch !== false && details.kayrosHashMatch !== false
+          : undefined;
         let remoteError: string | undefined;
-        let timestampMatch: boolean | undefined = verification.details?.timestampMatch;
-        let remoteDataItemHex: string | undefined = verification.details?.remoteHash;
-        let proofTimeuuid: string | undefined = verification.details?.proofTimeuuid;
-        let remoteTimeuuid: string | undefined = verification.details?.remoteTimeuuid;
+        let timestampMatch: boolean | undefined = details?.uuidTimestampMatch;
+        let remoteDataItemHex: string | undefined = details?.record?.data_item;
+        let proofTimeuuid: string | undefined = normalized.getTimeUUID();
+        let remoteTimeuuid: string | undefined = details?.record?.uuid;
 
         if (kayrosHash) {
           recordUrl = getRecordUrl(kayrosHash, dataType ?? undefined);
@@ -184,14 +156,14 @@ export function useKayrosVerification(envelope?: KayrosEnvelope): VerificationSt
         const timestampLocal = formatIsoNsToLocal(timestampIsoNs);
 
         if (!verification.valid) {
-          if (verification.details?.hashMatch === false) {
+          if (details?.envelopeDataItemMatch === false) {
             // Local integrity failure (data hash mismatch)
             setState({
               loading: false,
               error: verification.error ?? 'Verification failed',
-              computedHash: verification.details?.computedHash,
-              dataHash: verification.details?.dataHash,
-              hashMatch: verification.details?.hashMatch,
+              computedHash: details?.computedDataItem,
+              dataHash: details?.envelopeDataItem,
+              hashMatch: details?.envelopeDataItemMatch,
               remoteMatch,
               remoteRecord,
               remoteDataItemHex,
@@ -212,9 +184,9 @@ export function useKayrosVerification(envelope?: KayrosEnvelope): VerificationSt
         if (!cancelled) {
           setState({
             loading: false,
-            computedHash: verification.details?.computedHash,
-            dataHash,
-            hashMatch: verification.details?.hashMatch,
+            computedHash: details?.computedDataItem,
+            dataHash: details?.envelopeDataItem ?? dataHash,
+            hashMatch: details?.envelopeDataItemMatch,
             remoteMatch,
             remoteRecord,
             remoteDataItemHex,

@@ -19,8 +19,23 @@ const (
 	// GetRecordByHashRoute is the API route for getting a record by hash
 	GetRecordByHashRoute = "/api/lightnet/database/record-by-hash"
 
+	// GetRecordByDataItemRoute retrieves records by data_type and data_item.
+	GetRecordByDataItemRoute = "/api/lightnet/database/record"
+
+	// ComputeHashFromHexRoute recomputes a Kayros record hash from record fields.
+	ComputeHashFromHexRoute = "/api/lightnet/compute-hash-from-hex"
+
+	// GetMerkleProofRoute retrieves a Merkle proof path for a Kayros hash.
+	GetMerkleProofRoute = "/api/lightnet/merkle-proof"
+
+	// VerifyHashExistenceRoute checks a single proof hash at a specific level/position.
+	VerifyHashExistenceRoute = "/api/lightnet/merkle/verify-hash-existence"
+
+	// VerifyHashBatchRoute checks a range of proof hashes at a specific level.
+	VerifyHashBatchRoute = "/api/lightnet/merkle/verify-hash-batch"
+
 	// DataType is the default data type label for Kayros API
-	DataType = "provable_sdk\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+	DataType = "provable_sdk"
 
 	// DefaultUserKey is the default user key used for X-User-Key header
 	DefaultUserKey = "0x0000000000000000000000000000000000000000000000000000000000000001"

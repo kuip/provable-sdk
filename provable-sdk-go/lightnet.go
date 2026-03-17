@@ -76,8 +76,17 @@ type HashVerifyResult struct {
 }
 
 type ComputeHashRequest struct {
-	HashInputHex string `json:"hash_input_hex"`
-	HashType     string `json:"hash_type"` // blake3 or xxh3
+	PrevHash string `json:"prev_hash,omitempty"`
+	DataType string `json:"data_type"`
+	DataItem string `json:"data_item"`
+	TimeUUID string `json:"timeuuid"`
+	HashType string `json:"hash_type"`
+}
+
+type ComputeHashResponse struct {
+	Hash      string `json:"hash"`
+	HashType  string `json:"hash_type"`
+	InputSize int    `json:"input_size"`
 }
 
 // gRPC types
@@ -98,43 +107,59 @@ type SingleHashResponse struct {
 	DataItemHex     string `json:"data_item_hex"`
 }
 
-// Merkle proof types
-
-type GenerateMerkleProofRequest struct {
-	HashItem  string `json:"hash_item"`
-	DataType  string `json:"data_type,omitempty"`
-	Timestamp string `json:"timestamp,omitempty"`
+type GetRecordByDataItemResponse struct {
+	Records []GetRecordResponse `json:"records"`
+	Count   int                 `json:"count"`
 }
 
-type MerkleProof struct {
-	TargetHashHex   string   `json:"target_hash_hex"`
-	DataType        string   `json:"data_type"`
-	Timestamp       string   `json:"timestamp"`
-	Position        int64    `json:"position"`
-	RootHashHex     string   `json:"root_hash_hex"`
-	ProofHashesHex  []string `json:"proof_hashes_hex"`
-	Levels          int      `json:"levels"`
-	StoredRootHex   string   `json:"stored_root_hex"`
-	GeneratedAt     string   `json:"generated_at"`
-	LightnetVersion string   `json:"lightnet_version"`
-	ProofFormat     string   `json:"proof_format"`
+type MerkleProofResponse struct {
+	Success     bool     `json:"success"`
+	DataType    string   `json:"data_type"`
+	HashItem    string   `json:"hash_item"`
+	Proof       []string `json:"proof"`
+	Root        string   `json:"root"`
+	Position    int64    `json:"position"`
+	Levels      int      `json:"levels"`
+	LevelCounts []int    `json:"level_counts"`
+	LevelStarts []int64  `json:"level_starts"`
+	Message     string   `json:"message,omitempty"`
+	Error       string   `json:"error,omitempty"`
 }
 
-type VerifyMerkleProofRequest struct {
-	TargetHashHex  string   `json:"target_hash_hex"`
-	ProofHashesHex []string `json:"proof_hashes_hex"` // must be 256 entries
-	Levels         int      `json:"levels"`
-	Position       int64    `json:"position"`
-	RootHashHex    string   `json:"root_hash_hex"`
+type VerifyHashExistenceRequest struct {
+	DataType string `json:"data_type"`
+	Level    int    `json:"level"`
+	Position int64  `json:"position"`
+	Hash     string `json:"hash"`
 }
 
-type MerkleProofVerificationResult struct {
-	Valid           bool   `json:"valid"`
-	Message         string `json:"message"`
-	ComputedRootHex string `json:"computed_root_hex"`
-	StoredRootHex   string `json:"stored_root_hex"`
-	TargetHashHex   string `json:"target_hash_hex"`
-	Position        int64  `json:"position"`
+type VerifyHashExistenceResponse struct {
+	Exists    bool   `json:"exists"`
+	Level     int    `json:"level"`
+	Position  int64  `json:"position"`
+	DataType  string `json:"data_type"`
+	FoundHash string `json:"found_hash,omitempty"`
+	Message   string `json:"message,omitempty"`
+	Error     string `json:"error,omitempty"`
+}
+
+type VerifyHashBatchRequest struct {
+	DataType string   `json:"data_type"`
+	Level    int      `json:"level"`
+	Start    int64    `json:"start"`
+	Hashes   []string `json:"hashes"`
+}
+
+type VerifyHashBatchResponse struct {
+	DataType   string `json:"data_type"`
+	Level      int    `json:"level"`
+	Start      int64  `json:"start"`
+	Count      int    `json:"count"`
+	Results    []int  `json:"results"`
+	Matches    int    `json:"matches"`
+	Mismatches int    `json:"mismatches"`
+	Message    string `json:"message,omitempty"`
+	Error      string `json:"error,omitempty"`
 }
 
 // API Response wrapper
@@ -342,6 +367,37 @@ func GetRecordWithPrevHash(uuid string) (*APIResponse, error) {
 	return &result, nil
 }
 
+// GetRecordByDataItem gets records by data_type and data_item.
+func GetRecordByDataItem(dataType string, dataItem string, apiKey ...string) (*GetRecordByDataItemResponse, error) {
+	params := url.Values{}
+	params.Set("data_type", dataType)
+	params.Set("data_item", dataItem)
+	endpoint := GetKayrosURL(GetRecordByDataItemRoute + "?" + params.Encode())
+
+	override := ""
+	if len(apiKey) > 0 {
+		override = apiKey[0]
+	}
+
+	resp, err := doJSONGetWithAPIKey(endpoint, override)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error: %d %s - %s", resp.StatusCode, resp.Status, string(body))
+	}
+
+	var result GetRecordByDataItemResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &result, nil
+}
+
 // Hash Operations
 
 // VerifyHash verifies a hash computation
@@ -372,16 +428,21 @@ func VerifyHash(request HashVerifyRequest) (*APIResponse, error) {
 	return &result, nil
 }
 
-// ComputeHashFromHex computes hash from hex input
-func ComputeHashFromHex(request ComputeHashRequest) (*APIResponse, error) {
-	url := GetKayrosURL("/api/compute-hash-from-hex")
+// ComputeHashFromHex recomputes a Kayros record hash from record fields.
+func ComputeHashFromHex(request ComputeHashRequest, apiKey ...string) (*ComputeHashResponse, error) {
+	url := GetKayrosURL(ComputeHashFromHexRoute)
 
 	jsonData, err := json.Marshal(request)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	resp, err := doJSONPost(url, jsonData)
+	override := ""
+	if len(apiKey) > 0 {
+		override = apiKey[0]
+	}
+
+	resp, err := doJSONPostWithAPIKey(url, jsonData, override)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -392,7 +453,7 @@ func ComputeHashFromHex(request ComputeHashRequest) (*APIResponse, error) {
 		return nil, fmt.Errorf("API error: %d %s - %s", resp.StatusCode, resp.Status, string(body))
 	}
 
-	var result APIResponse
+	var result ComputeHashResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
@@ -430,18 +491,24 @@ func SendSingleGRPCRequest(request SingleHashRequest) (*APIResponse, error) {
 	return &result, nil
 }
 
-// Merkle Proof Operations
+// GetMerkleProof retrieves a Merkle proof by hash or position.
+func GetMerkleProof(dataType string, hash string, position *int64, apiKey ...string) (*MerkleProofResponse, error) {
+	params := url.Values{}
+	params.Set("data_type", dataType)
+	if hash != "" {
+		params.Set("hash", hash)
+	}
+	if position != nil {
+		params.Set("position", fmt.Sprintf("%d", *position))
+	}
+	endpoint := GetKayrosURL(GetMerkleProofRoute + "?" + params.Encode())
 
-// GenerateMerkleProof generates a Merkle proof for a specific hash
-func GenerateMerkleProof(request GenerateMerkleProofRequest) (*APIResponse, error) {
-	url := GetKayrosURL("/api/merkle/generate-proof")
-
-	jsonData, err := json.Marshal(request)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	override := ""
+	if len(apiKey) > 0 {
+		override = apiKey[0]
 	}
 
-	resp, err := doJSONPost(url, jsonData)
+	resp, err := doJSONGetWithAPIKey(endpoint, override)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -452,7 +519,7 @@ func GenerateMerkleProof(request GenerateMerkleProofRequest) (*APIResponse, erro
 		return nil, fmt.Errorf("API error: %d %s - %s", resp.StatusCode, resp.Status, string(body))
 	}
 
-	var result APIResponse
+	var result MerkleProofResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
@@ -460,16 +527,21 @@ func GenerateMerkleProof(request GenerateMerkleProofRequest) (*APIResponse, erro
 	return &result, nil
 }
 
-// VerifyMerkleProof verifies a Merkle proof
-func VerifyMerkleProof(request VerifyMerkleProofRequest) (*APIResponse, error) {
-	url := GetKayrosURL("/api/merkle/verify-proof")
+// VerifyHashExistence checks if a hash exists at a level and position.
+func VerifyHashExistence(request VerifyHashExistenceRequest, apiKey ...string) (*VerifyHashExistenceResponse, error) {
+	url := GetKayrosURL(VerifyHashExistenceRoute)
 
 	jsonData, err := json.Marshal(request)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	resp, err := doJSONPost(url, jsonData)
+	override := ""
+	if len(apiKey) > 0 {
+		override = apiKey[0]
+	}
+
+	resp, err := doJSONPostWithAPIKey(url, jsonData, override)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
@@ -480,7 +552,40 @@ func VerifyMerkleProof(request VerifyMerkleProofRequest) (*APIResponse, error) {
 		return nil, fmt.Errorf("API error: %d %s - %s", resp.StatusCode, resp.Status, string(body))
 	}
 
-	var result APIResponse
+	var result VerifyHashExistenceResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// VerifyHashBatch checks a range of hashes for a level/start window.
+func VerifyHashBatch(request VerifyHashBatchRequest, apiKey ...string) (*VerifyHashBatchResponse, error) {
+	url := GetKayrosURL(VerifyHashBatchRoute)
+
+	jsonData, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	override := ""
+	if len(apiKey) > 0 {
+		override = apiKey[0]
+	}
+
+	resp, err := doJSONPostWithAPIKey(url, jsonData, override)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error: %d %s - %s", resp.StatusCode, resp.Status, string(body))
+	}
+
+	var result VerifyHashBatchResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}

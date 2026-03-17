@@ -7,11 +7,9 @@ import { describe, it, expect } from 'vitest';
 import { keccak256_str } from './hash';
 import { prove_single_hash, get_record_by_hash } from './api';
 import { verify } from './verify';
-import { KayrosEnvelope } from './types';
 import { getRecordUrl } from './config';
 
 const TEST_DATA_TYPE = "provable_sdk_tests";
-const TEST_DATA_TYPE_HEX = Buffer.from(TEST_DATA_TYPE, 'utf8').toString('hex');
 
 describe('Full cycle integration', () => {
   it('should complete full cycle: data -> hash -> index -> verify', async () => {
@@ -33,44 +31,23 @@ describe('Full cycle integration', () => {
       throw new Error('Missing computed hash from Kayros response');
     }
 
-    // Step 4: Build proof object (envelope)
-    const timestampResponse = {
-      success: true,
-      hash: computedHash,
-      timeuuid: '',
-      data: {
-        data_type_hex: TEST_DATA_TYPE_HEX,
-      },
-    };
-
-    const envelope = new KayrosEnvelope<string>(
-      testData,
-      {
-        hash: dataHash,
-        hashAlgorithm: 'keccak256',
-        timestamp: {
-          service: 'kayros',
-          response: timestampResponse,
-        },
-      }
-    );
-
-    // Step 5: Verify the proof
-    const verifyResult = await verify(envelope);
+    // Step 4: Verify the record directly against Kayros APIs.
+    const verifyResult = await verify({
+      data_type: TEST_DATA_TYPE,
+      data_item: dataHash,
+      kayros_hash: computedHash,
+    });
     const recordUrl = getRecordUrl(computedHash, TEST_DATA_TYPE);
 
     // Verify result is valid
     expect(verifyResult.valid).toBe(true);
     expect(verifyResult.error).toBeUndefined();
 
-    // Verify hash matches
-    expect(verifyResult.details?.hashMatch).toBe(true);
-    expect(verifyResult.details?.computedHash).toBe(dataHash);
-    expect(verifyResult.details?.dataHash).toBe(dataHash);
-
-    // Verify remote record exists and matches
-    expect(verifyResult.details?.remoteMatch).toBe(true);
-    expect(verifyResult.details?.remoteHash).toBe(dataHash);
+    expect(verifyResult.details?.dataItemMatch).toBe(true);
+    expect(verifyResult.details?.kayrosHashMatch).toBe(true);
+    expect(verifyResult.details?.recordHashMatch).toBe(true);
+    expect(verifyResult.details?.record?.data_item).toBe(dataHash);
+    expect(verifyResult.details?.record?.kayros_hash).toBe(computedHash);
 
     // Step 6: Verify we can retrieve the record by hash using the computed hash from Kayros
     const record = await get_record_by_hash(computedHash, TEST_DATA_TYPE);

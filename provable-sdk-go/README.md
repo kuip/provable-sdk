@@ -1,6 +1,6 @@
 # Provable SDK for Go
 
-A Go SDK for interacting with the Provable Kayros API.
+`provable-sdk-go` is the Kayros API and verification SDK for Go.
 
 ## Installation
 
@@ -12,7 +12,7 @@ go get github.com/provable/provable-sdk-go
 
 ### 1. Default usage
 
-Use the SDK with no explicit API key and no custom data type. This uses the default `provable_sdk` data type and the built-in default key.
+Use the built-in key and the default `provable_sdk` data type.
 
 ```go
 package main
@@ -25,76 +25,43 @@ import (
 )
 
 func main() {
-	// Hash bytes (keccak256)
-	data := []byte{1, 2, 3, 4}
-	dataHash := provable.Keccak256(data)
-	fmt.Println("Data hash:", dataHash)
+	dataItem := "abababababababababababababababababababababababababababababababab"
 
-	// Hash string (sha256 - default)
-	text := "Hello, Provable!"
-	strHash := provable.SHA256Str(text)
-	fmt.Println("String hash:", strHash)
-
-	// Prove a hash
-	proof, err := provable.ProveSingleHash(dataHash)
+	proof, err := provable.ProveSingleHash(dataItem)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("Proof:", proof)
+	kayrosHash := proof.Hash
 
-	// Get a record by hash
-	record, err := provable.GetRecordByHash(proof.Data.ComputedHashHex)
+	record, err := provable.GetRecordByHash(kayrosHash)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("Record:", record)
+	fmt.Println(record)
 
-	// Prove data directly
-	dataProof, err := provable.ProveData(data)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("Data proof:", dataProof)
+	verified := provable.Verify(provable.VerifyRequest{
+		DataType:   "provable_sdk",
+		DataItem:   dataItem,
+		KayrosHash: kayrosHash,
+	})
 
-	// Prove string data directly
-	strProof, err := provable.ProveDataStr(text)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println("String proof:", strProof)
-
-	// Create and verify a KayrosEnvelope
-	envelope := &provable.KayrosEnvelope{
-		Data: map[string]string{"message": "Hello, Provable!"},
-		Kayros: provable.KayrosMetadata{
-			Hash:          strHash,
-			HashAlgorithm: "sha256",
-			Timestamp: &provable.KayrosTimestamp{
-				Service:  "kayros",
-				Response: proof,
-			},
+	inclusion := provable.VerifyWithInclusion(provable.VerifyWithInclusionRequest{
+		VerifyRequest: provable.VerifyRequest{
+			DataType:   "provable_sdk",
+			KayrosHash: kayrosHash,
 		},
-	}
+	})
 
-	result := provable.Verify(envelope)
-	if result.Valid {
-		fmt.Println("Verification successful!")
-	} else {
-		fmt.Printf("Verification failed: %s\n", result.Error)
-	}
+	fmt.Println(verified.Valid, inclusion.Valid)
 }
 ```
 
 ### 2. Usage with API key and custom data type
 
-If your app stores a private API key and a project-specific data type in settings, pass them into the SDK through `RequestOptions` and `VerifyOptions`.
-
 ```go
 package main
 
 import (
-	"fmt"
-	"log"
 	"os"
 
 	provable "github.com/provable/provable-sdk-go"
@@ -109,106 +76,51 @@ func main() {
 		DataType: "kayros_indexer_v1",
 	}
 
-	// Optional: set the key once for subsequent calls.
 	provable.SetAPIKey(settings.APIKey)
 
-	proof, err := provable.ProveSingleHashWithOptions("your_hash_here", &provable.RequestOptions{
+	proof, err := provable.ProveSingleHashWithOptions("abababababababababababababababababababababababababababababababab", &provable.RequestOptions{
 		APIKey:   settings.APIKey,
 		DataType: settings.DataType,
 	})
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
+	kayrosHash := proof.Hash
 
-	record, err := provable.GetRecordByHashWithOptions("computed_hash_here", &provable.RequestOptions{
-		APIKey:   settings.APIKey,
-		DataType: settings.DataType,
+	verified := provable.Verify(provable.VerifyRequest{
+		DataType:   settings.DataType,
+		DataItem:   "abababababababababababababababababababababababababababababababab",
+		KayrosHash: kayrosHash,
+		APIKey:     settings.APIKey,
 	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println(record)
 
-	envelope := &provable.KayrosEnvelope{
-		Data: "hello",
-		Kayros: provable.KayrosMetadata{
-			Hash:          "local_data_hash",
-			HashAlgorithm: "keccak256",
-			Timestamp: &provable.KayrosTimestamp{
-				Service:  "kayros",
-				Response: proof,
-			},
+	inclusion := provable.VerifyWithInclusion(provable.VerifyWithInclusionRequest{
+		VerifyRequest: provable.VerifyRequest{
+			DataType:   settings.DataType,
+			KayrosHash: kayrosHash,
+			APIKey:     settings.APIKey,
 		},
-	}
-
-	result := provable.VerifyWithOptions(envelope, &provable.VerifyOptions{
-		APIKey:    settings.APIKey,
-		DataTypes: []string{settings.DataType},
+		VerifyBatchExistence: true,
 	})
-	if !result.Valid {
-		log.Fatal(result.Error)
-	}
+
+	_, _ = verified, inclusion
 }
 ```
 
-## API
+## Main API
 
-### Hash Functions
-
-- `Keccak256(data []byte) string` - Compute keccak256 hash of bytes
-- `Keccak256Str(s string) string` - Compute keccak256 hash of a UTF-8 string
-- `SHA256(data []byte) string` - Compute SHA-256 hash of bytes
-- `SHA256Str(s string) string` - Compute SHA-256 hash of a UTF-8 string
-- `Hash` / `HashStr` - Aliases for Keccak256 functions
-
-### Prove Functions
-
-- `ProveSingleHash(dataHash string) (*ProveSingleHashResponse, error)` - Prove a hash via Kayros API
-- `ProveData(data []byte) (*ProveSingleHashResponse, error)` - Hash and prove bytes
-- `ProveDataStr(s string) (*ProveSingleHashResponse, error)` - Hash and prove a string
-- `SetAPIKey(apiKey string)` - Set the API key used for subsequent requests
-
-Option-based variants:
-
+- `ProveSingleHash(dataHash string)`
 - `ProveSingleHashWithOptions(dataHash string, opts *RequestOptions)`
-- `ProveDataWithOptions(data []byte, opts *RequestOptions)`
-- `ProveDataStrWithOptions(s string, opts *RequestOptions)`
+- `GetRecordByHash(kayrosHash string)`
+- `GetRecordByHashWithOptions(kayrosHash string, opts *RequestOptions)`
+- `GetRecordByDataItem(dataType, dataItem string, apiKey ...string)`
+- `GetMerkleProof(dataType, hash string, position *int64, apiKey ...string)`
+- `VerifyHashExistence(request VerifyHashExistenceRequest, apiKey ...string)`
+- `VerifyHashBatch(request VerifyHashBatchRequest, apiKey ...string)`
+- `Verify(request VerifyRequest)`
+- `VerifyWithInclusion(request VerifyWithInclusionRequest)`
 
-### Record Functions
-
-- `GetRecordByHash(recordHash string) (*GetRecordResponse, error)` - Get Kayros record by hash
-
-Option-based variant:
-
-- `GetRecordByHashWithOptions(recordHash string, opts *RequestOptions)`
-- Set `OmitDataType: true` in `RequestOptions` to omit the `data_type` lookup query parameter when needed.
-
-### Verify Function
-
-- `Verify(envelope *KayrosEnvelope) *VerifyResult` - Verify data against Kayros proof
-
-Option-based variant:
-
-- `VerifyWithOptions(envelope *KayrosEnvelope, opts *VerifyOptions) *VerifyResult`
-
-## KayrosEnvelope
-
-The `KayrosEnvelope` struct wraps data with Kayros proof metadata:
-
-```go
-envelope := &provable.KayrosEnvelope{
-	Data:   myData,
-	Kayros: kayrosMetadata,
-}
-
-// Helper methods
-data, err := envelope.GetData()    // Get data as []byte
-envelope.GetDataHash()             // Get the data hash (data_item_hex)
-envelope.GetDataType()             // Get the data type (data_type_hex)
-envelope.GetKayrosHash()           // Get the Kayros hash (computed_hash_hex)
-envelope.GetTimeUUID()             // Get the time UUID (timeuuid_hex)
-envelope.GetHashAlgorithm()        // Get hash algorithm (defaults to "sha256")
-```
+`DataType` is required for verification. Provide at least one of `DataItem` or `KayrosHash`.
 
 ## License
 

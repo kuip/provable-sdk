@@ -9,10 +9,15 @@ export const KayrosHost = "https://kayros.provable.dev";
 export const API_ROUTES = {
   PROVE_SINGLE_HASH: "/api/lightnet/grpc/single-hash",
   GET_RECORD_BY_HASH: "/api/lightnet/database/record-by-hash",
+  GET_RECORD_BY_DATA_ITEM: "/api/lightnet/database/record",
+  COMPUTE_HASH_FROM_HEX: "/api/lightnet/compute-hash-from-hex",
+  GET_MERKLE_PROOF: "/api/lightnet/merkle-proof",
+  VERIFY_HASH_EXISTENCE: "/api/lightnet/merkle/verify-hash-existence",
+  VERIFY_HASH_BATCH: "/api/lightnet/merkle/verify-hash-batch",
 } as const;
 
-// Default data type (provable_sdk padded to 32 bytes)
-export const DATA_TYPE = "provable_sdk\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000";
+// Default data type for new writes and lookups.
+export const DATA_TYPE = "provable_sdk";
 export const DEFAULT_USER_KEY = "0x0000000000000000000000000000000000000000000000000000000000000001";
 export const DEFAULT_API_KEY = DEFAULT_USER_KEY;
 
@@ -39,7 +44,7 @@ export function getApiKey(): string {
 }
 
 export function resolveApiKey(options?: ApiKeyOptions): string {
-  return options?.apiKey ?? options?.userKey ?? getApiKey();
+  return options?.apiKey ?? options?.api_key ?? options?.userKey ?? getApiKey();
 }
 
 export function getDefaultHeaders(options?: ApiKeyOptions): Record<string, string> {

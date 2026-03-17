@@ -9,7 +9,6 @@ import pytest
 from provable_sdk.hash import keccak256_str
 from provable_sdk.api import prove_single_hash, get_record_by_hash
 from provable_sdk.verify import verify
-from provable_sdk.types import KayrosEnvelope
 
 
 class TestFullCycleIntegration:
@@ -18,8 +17,6 @@ class TestFullCycleIntegration:
         """Test complete cycle: data -> hash -> index -> verify"""
 
         test_data_type = "provable_sdk_tests"
-        test_data_type_hex = test_data_type.encode("utf-8").hex()
-
         # Step 1: Start with test data
         test_data = f"Integration test data {int(time.time() * 1000)}"
 
@@ -36,39 +33,22 @@ class TestFullCycleIntegration:
 
         computed_hash = kayros_response["hash"]
 
-        # Step 4: Build proof object (envelope)
-        envelope = KayrosEnvelope(
-            data=test_data,
-            kayros={
-                "hash": data_hash,
-                "hashAlgorithm": "keccak256",
-                "timestamp": {
-                    "service": "kayros",
-                    "response": {
-                        **kayros_response,
-                        "data": {"data_type_hex": test_data_type_hex},
-                    },
-                },
-            },
-        )
-
-        # Step 5: Verify the proof
-        verify_result = verify(envelope)
+        # Step 4: Verify the indexed record
+        verify_result = verify({
+            "data_type": test_data_type,
+            "data_item": data_hash,
+            "kayros_hash": computed_hash,
+        })
 
         # Verify result is valid
         assert verify_result["valid"] is True
         assert "error" not in verify_result or verify_result.get("error") is None
 
-        # Verify hash matches
-        assert verify_result["details"]["hashMatch"] is True
-        assert verify_result["details"]["computedHash"] == data_hash
-        assert verify_result["details"]["dataHash"] == data_hash
+        assert verify_result["details"]["dataItemMatch"] is True
+        assert verify_result["details"]["kayrosHashMatch"] is True
+        assert verify_result["details"]["recordHashMatch"] is True
 
-        # Verify remote record exists and matches
-        assert verify_result["details"]["remoteMatch"] is True
-        assert verify_result["details"]["remoteHash"] == data_hash
-
-        # Step 6: Verify we can retrieve the record by hash using the computed hash from Kayros
+        # Step 5: Verify we can retrieve the record by hash using the computed hash from Kayros
         record = get_record_by_hash(computed_hash, test_data_type)
         assert record is not None
         decoded = base64.b64decode(record["data_item"]).hex()

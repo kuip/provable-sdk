@@ -34,6 +34,7 @@
     "react-dom": ">=18"
   },
   "dependencies": {
+    "provable-proof-js": "file:../provable-proof-js",
     "provable-sdk-js": "file:../provable-sdk-js"
   },
   "devDependencies": {

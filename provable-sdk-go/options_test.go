@@ -30,13 +30,3 @@ func TestResolveRequestOptions(t *testing.T) {
 		}
 	})
 }
-
-func TestMergeLookupCandidates(t *testing.T) {
-	candidates := mergeLookupCandidates([]string{"", "proof_type"}, []string{"proof_type", "decoded_type"})
-	if len(candidates) != 3 {
-		t.Fatalf("mergeLookupCandidates length = %d, want 3", len(candidates))
-	}
-	if candidates[0] != "" || candidates[1] != "proof_type" || candidates[2] != "decoded_type" {
-		t.Fatalf("mergeLookupCandidates = %#v", candidates)
-	}
-}

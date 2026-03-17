@@ -28,9 +28,8 @@ describe('config', () => {
   });
 
   describe('DATA_TYPE constant', () => {
-    it('should be padded to 32 bytes', () => {
-      expect(new TextEncoder().encode(DATA_TYPE)).toHaveLength(32);
-      expect(DATA_TYPE.replace(/\0/g, '')).toBe('provable_sdk');
+    it('should default to the plain provable_sdk label', () => {
+      expect(DATA_TYPE).toBe('provable_sdk');
     });
   });
 

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { KayrosEnvelope } from 'provable-sdk-js';
+import { KayrosEnvelope } from 'provable-proof-js';
 
 export function WebSnapshotPanel({ envelope }: { envelope: KayrosEnvelope }) {
   const data = envelope.data as any;

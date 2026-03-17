@@ -18,12 +18,15 @@ from .types import (
     HashVerifyRequest,
     HashVerifyResult,
     ComputeHashRequest,
+    ComputeHashResponse,
     SingleHashRequest,
     SingleHashResponse,
-    GenerateMerkleProofRequest,
-    MerkleProof,
-    VerifyMerkleProofRequest,
-    MerkleProofVerificationResult,
+    GetRecordByDataItemResponse,
+    MerkleProofResponse,
+    HashExistenceRequest,
+    HashExistenceResponse,
+    HashBatchRequest,
+    HashBatchResponse,
 )
 
 
@@ -175,6 +178,23 @@ def get_record_with_prev_hash(uuid: str) -> APIResponse:
     return response.json()
 
 
+def get_record_by_data_item(data_type: str, data_item: str, api_key: str = None, limit: int = None) -> GetRecordByDataItemResponse:
+    """
+    Get records by data_type and data_item.
+    """
+    params = {
+        "data_type": data_type,
+        "data_item": data_item,
+    }
+    if limit is not None and limit > 0:
+        params["limit"] = limit
+
+    url = get_kayros_url(f"{API_ROUTES['GET_RECORD_BY_DATA_ITEM']}?{urlencode(params)}")
+    response = requests.get(url, headers=get_default_headers(api_key))
+    response.raise_for_status()
+    return response.json()
+
+
 # Hash Operations
 
 def verify_hash(request: HashVerifyRequest) -> APIResponse:
@@ -196,7 +216,7 @@ def verify_hash(request: HashVerifyRequest) -> APIResponse:
     return response.json()
 
 
-def compute_hash_from_hex(request: ComputeHashRequest) -> APIResponse:
+def compute_hash_from_hex(request: ComputeHashRequest, api_key: str = None) -> ComputeHashResponse:
     """
     Compute hash from hex input
 
@@ -209,8 +229,8 @@ def compute_hash_from_hex(request: ComputeHashRequest) -> APIResponse:
     Raises:
         requests.HTTPError: If the API request fails
     """
-    url = get_kayros_url('/api/compute-hash-from-hex')
-    response = requests.post(url, json=request, headers=get_default_headers())
+    url = get_kayros_url(API_ROUTES["COMPUTE_HASH_FROM_HEX"])
+    response = requests.post(url, json=request, headers=get_default_headers(api_key))
     response.raise_for_status()
     return response.json()
 
@@ -238,39 +258,37 @@ def send_single_grpc_request(request: SingleHashRequest) -> APIResponse:
 
 # Merkle Proof Operations
 
-def generate_merkle_proof(request: GenerateMerkleProofRequest) -> APIResponse:
+def get_merkle_proof(data_type: str, *, hash: str = None, position: int = None, api_key: str = None) -> MerkleProofResponse:
     """
-    Generate a Merkle proof for a specific hash
-
-    Args:
-        request: Merkle proof generation request
-
-    Returns:
-        API response with Merkle proof
-
-    Raises:
-        requests.HTTPError: If the API request fails
+    Get a Merkle proof by hash or position.
     """
-    url = get_kayros_url('/api/merkle/generate-proof')
-    response = requests.post(url, json=request, headers=get_default_headers())
+    params: Dict[str, Any] = {"data_type": data_type}
+    if hash is not None:
+        params["hash"] = hash
+    if position is not None:
+        params["position"] = position
+
+    url = get_kayros_url(f"{API_ROUTES['GET_MERKLE_PROOF']}?{urlencode(params)}")
+    response = requests.get(url, headers=get_default_headers(api_key))
     response.raise_for_status()
     return response.json()
 
 
-def verify_merkle_proof(request: VerifyMerkleProofRequest) -> APIResponse:
+def verify_hash_existence(request: HashExistenceRequest, api_key: str = None) -> HashExistenceResponse:
     """
-    Verify a Merkle proof
-
-    Args:
-        request: Merkle proof verification request
-
-    Returns:
-        API response with verification result
-
-    Raises:
-        requests.HTTPError: If the API request fails
+    Verify that a hash exists at a specific level and position.
     """
-    url = get_kayros_url('/api/merkle/verify-proof')
-    response = requests.post(url, json=request, headers=get_default_headers())
+    url = get_kayros_url(API_ROUTES["VERIFY_HASH_EXISTENCE"])
+    response = requests.post(url, json=request, headers=get_default_headers(api_key))
+    response.raise_for_status()
+    return response.json()
+
+
+def verify_hash_batch(request: HashBatchRequest, api_key: str = None) -> HashBatchResponse:
+    """
+    Verify multiple hashes at once for a level/start window.
+    """
+    url = get_kayros_url(API_ROUTES["VERIFY_HASH_BATCH"])
+    response = requests.post(url, json=request, headers=get_default_headers(api_key))
     response.raise_for_status()
     return response.json()

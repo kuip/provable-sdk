@@ -2,22 +2,6 @@
  * Provable SDK public types.
  */
 
-export interface KayrosMetadata {
-  hash?: string;
-  hashAlgorithm?: string;
-  timestamp?: {
-    service: string;
-    response: unknown;
-  };
-}
-
-export interface KayrosMetadataV0 extends APIResponse<SingleHashResponse> {
-  hash?: string;
-  hashAlgorithm?: string;
-}
-
-export type AnyKayrosMetadata = KayrosMetadata | KayrosMetadataV0;
-
 export interface ProveSingleHashResponse {
   success: boolean;
   hash?: string;
@@ -36,19 +20,184 @@ export interface GetRecordResponse {
   ts: string;
 }
 
+export interface GetRecordByDataItemResponse {
+  records: GetRecordResponse[];
+  count: number;
+}
+
+export interface ComputeHashRequest {
+  prev_hash?: string;
+  data_type: string;
+  data_item: string;
+  timeuuid: string;
+  hash_type: string;
+}
+
+export interface ComputeHashResponse {
+  hash: string;
+  hash_type: string;
+  input_size: number;
+}
+
+export interface MerkleProofResponse {
+  success: boolean;
+  data_type: string;
+  hash_item: string;
+  proof: string[];
+  root: string;
+  position: number;
+  levels: number;
+  level_counts: number[];
+  level_starts: number[];
+  message?: string;
+  error?: string;
+}
+
+export interface HashExistenceRequest {
+  data_type: string;
+  level: number;
+  position: number;
+  hash: string;
+}
+
+export interface HashExistenceResponse {
+  exists: boolean;
+  level: number;
+  position: number;
+  data_type: string;
+  found_hash?: string;
+  message?: string;
+  error?: string;
+}
+
+export interface HashBatchRequest {
+  data_type: string;
+  level: number;
+  start: number;
+  hashes: string[];
+}
+
+export interface HashBatchResponse {
+  data_type: string;
+  level: number;
+  start: number;
+  count: number;
+  results: number[];
+  matches: number;
+  mismatches: number;
+  error?: string;
+  message?: string;
+}
+
+export interface VerifyRequest {
+  data_type?: string;
+  dataType?: string;
+  data_item?: string;
+  dataItem?: string;
+  kayros_hash?: string;
+  kayrosHash?: string;
+  apiKey?: string;
+  api_key?: string;
+  userKey?: string;
+}
+
+export interface VerifyLevelCheck {
+  level: number;
+  position: number;
+  hash?: string;
+}
+
+export interface VerifyWithInclusionRequest extends VerifyRequest {
+  trusted_root_hash?: string;
+  trustedRootHash?: string;
+  trusted_level?: number;
+  trustedLevel?: number;
+  trusted_position?: number;
+  trustedPosition?: number;
+  verify_batch_existence?: boolean;
+  verifyBatchExistence?: boolean;
+  level_checks?: VerifyLevelCheck[];
+  levelChecks?: VerifyLevelCheck[];
+}
+
+export interface NormalizedKayrosRecord {
+  data_type: string;
+  data_type_hex: string;
+  data_item: string;
+  kayros_hash: string;
+  prev_hash?: string;
+  hash_type: string;
+  uuid: string;
+  timestamp: string;
+  position: number;
+  raw: GetRecordResponse;
+}
+
+export interface NormalizedMerkleProof {
+  data_type: string;
+  hash_item: string;
+  proof: string[];
+  root: string;
+  position: number;
+  levels: number;
+  level_counts: number[];
+  level_starts: number[];
+  raw: MerkleProofResponse;
+}
+
+export interface LevelCheckResult {
+  level: number;
+  position: number;
+  hash: string;
+  valid: boolean;
+  exists?: boolean;
+  found_hash?: string;
+  message?: string;
+}
+
+export interface BatchExistenceCheckResult {
+  level: number;
+  start: number;
+  hashes: string[];
+  valid: boolean;
+  results: number[];
+  matches: number;
+  mismatches: number;
+}
+
 export interface VerifyResult {
   valid: boolean;
   error?: string;
   details?: {
-    hashMatch?: boolean;
-    remoteMatch?: boolean;
-    timestampMatch?: boolean;
-    computedHash?: string;
-    dataHash?: string;
-    remoteHash?: string;
-    proofTimeuuid?: string;
-    remoteTimeuuid?: string;
-    remoteRecord?: GetRecordResponse;
+    lookupMode: 'data_item' | 'kayros_hash';
+    recordFound: boolean;
+    ambiguous?: boolean;
+    ambiguousCount?: number;
+    dataTypeMatch?: boolean;
+    dataItemMatch?: boolean;
+    kayrosHashMatch?: boolean;
+    recordHashMatch?: boolean;
+    chainLinkMatch?: boolean;
+    uuidTimestampMatch?: boolean;
+    proofFetched?: boolean;
+    proofDataTypeMatch?: boolean;
+    proofHashItemMatch?: boolean;
+    proofPathMatch?: boolean;
+    targetPositionMatch?: boolean;
+    trustedRootMatch?: boolean;
+    trustedLevelMatch?: boolean;
+    batchExistenceMatch?: boolean;
+    pending?: boolean;
+    maxLevel?: number;
+    maxLevelPosition?: number;
+    maxLevelHash?: string;
+    computedRecordHash?: string;
+    localRootHash?: string;
+    record?: NormalizedKayrosRecord;
+    previousRecord?: NormalizedKayrosRecord;
+    proof?: NormalizedMerkleProof;
+    levelChecks?: LevelCheckResult[];
+    batchChecks?: BatchExistenceCheckResult[];
   };
 }
 
@@ -117,11 +266,6 @@ export interface HashVerifyResult {
   hash_input_hex: string;
 }
 
-export interface ComputeHashRequest {
-  hash_input_hex: string;
-  hash_type: string; // blake3 or xxh3
-}
-
 // gRPC types
 export interface SingleHashRequest {
   data_type: string; // 64 hex chars (32 bytes)
@@ -184,5 +328,3 @@ export interface APIResponse<T = unknown> {
   data?: T;
   error?: string;
 }
-
-export { KayrosEnvelope } from './envelope';

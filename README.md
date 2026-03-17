@@ -8,9 +8,10 @@ Do not send raw data to Provable. Use the embedded `hash` function or hash the d
 
 ## SDKs
 
-This monorepo contains three SDKs:
+This monorepo contains four packages:
 
 - **TypeScript/JavaScript** (`provable-sdk-js/`) - For Node.js and browser applications
+- **Proof envelope helpers** (`provable-proof-js/`) - For Provable proof JSON and proof-format verification helpers
 - **Python** (`provable-sdk-py/`) - For Python 3.8+ applications
 - **Go** (`provable-sdk-go/`) - For Go 1.21+ applications
 
@@ -93,15 +94,13 @@ All SDKs provide:
 - gRPC operations
 
 ### Configuration
-- Default data type: `"provable_sdk"` (padded to 32 bytes)
+- Default data type: `"provable_sdk"`
 - Customizable per-call data types
 - Automatic validation (must be 64 hex characters)
 
 ## Data Type
 
-All SDKs default to using `"provable_sdk"` as the data type identifier, which is:
-- Hex encoded: `0x70726f7661626c655f73646b`
-- Padded to 32 bytes: `70726f7661626c655f73646b00000000000000000000000000000000000000000000`
+All SDKs default to using `"provable_sdk"` as the data type identifier.
 
 ### 1. Default usage
 
@@ -171,6 +170,7 @@ ProveSingleHash(myHash, customDataType)
 Each SDK has its own README with detailed usage examples:
 
 - [TypeScript SDK](./provable-sdk-js/README.md)
+- [Proof Package](./provable-proof-js/README.md)
 - [Python SDK](./provable-sdk-py/README.md)
 - [Go SDK](./provable-sdk-go/README.md)
 
