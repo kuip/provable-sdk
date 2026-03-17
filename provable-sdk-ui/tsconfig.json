@@ -6,8 +6,8 @@
     "moduleResolution": "Bundler",
     "baseUrl": ".",
     "paths": {
-      "provable-proof-js": ["../provable-proof-js/dist/index.d.ts"],
-      "provable-sdk-js": ["../provable-sdk-js/dist/index.d.ts"]
+      "@kuip/provable-proof": ["../provable-proof-js/dist/index.d.ts"],
+      "@kuip/provable-sdk": ["../provable-sdk-js/dist/index.d.ts"]
     },
     "jsx": "react-jsx",
     "strict": true,

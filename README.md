@@ -10,8 +10,8 @@ Do not send raw data to Provable. Use the embedded `hash` function or hash the d
 
 This monorepo contains four packages:
 
-- **TypeScript/JavaScript** (`provable-sdk-js/`) - For Node.js and browser applications
-- **Proof envelope helpers** (`provable-proof-js/`) - For Provable proof JSON and proof-format verification helpers
+- **TypeScript/JavaScript** (`provable-sdk-js/`) — `@kuip/provable-sdk` — For Node.js and browser applications
+- **Proof envelope helpers** (`provable-proof-js/`) — `@kuip/provable-proof` — For Provable proof JSON and proof-format verification helpers
 - **Python** (`provable-sdk-py/`) - For Python 3.8+ applications
 - **Go** (`provable-sdk-go/`) - For Go 1.21+ applications
 

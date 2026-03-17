@@ -1,6 +1,6 @@
 import React from 'react';
-import { KayrosEnvelope } from 'provable-proof-js';
-import type { GetRecordResponse } from 'provable-sdk-js';
+import { KayrosEnvelope } from '@kuip/provable-proof';
+import type { GetRecordResponse } from '@kuip/provable-sdk';
 
 export function ProofDetailsPanel({
   envelope,

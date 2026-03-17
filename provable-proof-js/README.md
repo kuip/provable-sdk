@@ -1,13 +1,13 @@
-# provable-proof-js
+# @kuip/provable-proof
 
 Proof envelope and proof-format helpers for Provable proofs in TypeScript/JavaScript.
 
-This package owns the proof JSON envelope format used by Provable form, email, and web proofs. It depends on `provable-sdk-js` for Kayros verification.
+This package owns the proof JSON envelope format used by Provable form, email, and web proofs. It depends on `@kuip/provable-sdk` for Kayros verification.
 
 ## Installation
 
 ```bash
-npm install provable-proof-js provable-sdk-js
+npm install @kuip/provable-proof @kuip/provable-sdk
 ```
 
 ## Usage
@@ -15,7 +15,7 @@ npm install provable-proof-js provable-sdk-js
 ### 1. Default usage
 
 ```ts
-import { KayrosEnvelope, verifyEnvelopeWithInclusion } from 'provable-proof-js';
+import { KayrosEnvelope, verifyEnvelopeWithInclusion } from '@kuip/provable-proof';
 
 const envelope = KayrosEnvelope.fromJSON(proofJson);
 
@@ -27,7 +27,7 @@ const result = await verifyEnvelopeWithInclusion(envelope, {
 ### 2. Usage with API key and custom data type
 
 ```ts
-import { KayrosEnvelope, verifyEnvelope } from 'provable-proof-js';
+import { KayrosEnvelope, verifyEnvelope } from '@kuip/provable-proof';
 
 const settings = {
   apiKey: process.env.KAYROS_API_KEY!,

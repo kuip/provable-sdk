@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import {
   getRecordUrl,
   type GetRecordResponse
-} from 'provable-sdk-js';
-import { KayrosEnvelope, verifyEnvelope } from 'provable-proof-js';
+} from '@kuip/provable-sdk';
+import { KayrosEnvelope, verifyEnvelope } from '@kuip/provable-proof';
 
 export interface VerificationState {
   loading: boolean;

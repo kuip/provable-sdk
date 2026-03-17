@@ -1,5 +1,5 @@
 import React from 'react';
-import { KayrosEnvelope } from 'provable-proof-js';
+import { KayrosEnvelope } from '@kuip/provable-proof';
 
 function tryDecodeBase64Text(value: string): string | undefined {
   const compact = value.trim().replace(/\s+/g, '');

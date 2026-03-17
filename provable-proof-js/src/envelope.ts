@@ -1,4 +1,4 @@
-import { keccak256, sha256 } from 'provable-sdk-js';
+import { keccak256, sha256 } from '@kuip/provable-sdk';
 import type { AnyKayrosMetadata } from './types';
 
 type HashAlgorithm = 'sha256' | 'keccak256';

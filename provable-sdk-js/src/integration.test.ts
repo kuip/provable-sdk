@@ -54,5 +54,5 @@ describe('Full cycle integration', () => {
     expect(record).toBeDefined();
     const dataItemHex = Buffer.from(record.data_item, 'base64').toString('hex');
     expect(dataItemHex).toBe(dataHash);
-  }, 30000); // 30 second timeout for API calls
+  }, 30000);
 });

@@ -1,15 +1,15 @@
-# provable-sdk-ui
+# @kuip/provable-ui
 
 Reusable proof UI components for Provable/Kayros proofs.
 
-`provable-sdk-ui` expects proof envelopes from `provable-proof-js`.
+`@kuip/provable-ui` expects proof envelopes from `@kuip/provable-proof`.
 
 ## React usage
 
 ```tsx
-import { ProofViewer } from 'provable-sdk-ui';
-import { KayrosEnvelope } from 'provable-proof-js';
-import 'provable-sdk-ui/styles.css';
+import { ProofViewer } from '@kuip/provable-ui';
+import { KayrosEnvelope } from '@kuip/provable-proof';
+import '@kuip/provable-ui/styles.css';
 
 const envelope = new KayrosEnvelope(data, kayrosMetadata);
 
@@ -35,8 +35,8 @@ Legacy shape checks override the label:
 ## Script tag usage
 
 ```html
-<link rel="stylesheet" href="/path/to/provable-sdk-ui/dist/style.css" />
-<script src="/path/to/provable-sdk-ui/dist/browser/provable-sdk-ui.iife.js"></script>
+<link rel="stylesheet" href="/path/to/@kuip/provable-ui/dist/style.css" />
+<script src="/path/to/@kuip/provable-ui/dist/browser/@kuip/provable-ui.iife.js"></script>
 <div id="proof-root"></div>
 <script>
   const envelope = { data: window.proofData, kayros: window.kayrosMetadata };

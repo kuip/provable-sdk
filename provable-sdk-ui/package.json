@@ -1,6 +1,6 @@
 {
-  "name": "provable-sdk-ui",
-  "version": "0.0.6",
+  "name": "@kuip/provable-ui",
+  "version": "0.0.7",
   "description": "Reusable proof UIs for Provable/Kayros",
   "type": "module",
   "main": "dist/index.cjs",
@@ -34,8 +34,8 @@
     "react-dom": ">=18"
   },
   "dependencies": {
-    "provable-proof-js": "file:../provable-proof-js",
-    "provable-sdk-js": "file:../provable-sdk-js"
+    "@kuip/provable-proof": "file:../provable-proof-js",
+    "@kuip/provable-sdk": "file:../provable-sdk-js"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",

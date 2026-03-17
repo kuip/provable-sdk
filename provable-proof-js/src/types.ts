@@ -1,7 +1,7 @@
 import type {
   VerifyLevelCheck,
   VerifyResult,
-} from 'provable-sdk-js';
+} from '@kuip/provable-sdk';
 
 export interface KayrosMetadata {
   hash?: string;

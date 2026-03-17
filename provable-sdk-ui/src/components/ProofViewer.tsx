@@ -6,7 +6,7 @@ import { DataContent } from './DataContent';
 import { FormSnapshotPanel } from './FormSnapshotPanel';
 import { WebSnapshotPanel } from './WebSnapshotPanel';
 import { useKayrosVerification } from '../hooks/useKayrosVerification';
-import { KayrosEnvelope } from 'provable-proof-js';
+import { KayrosEnvelope } from '@kuip/provable-proof';
 
 export function ProofViewer({
   envelope,

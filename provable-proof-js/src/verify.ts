@@ -3,7 +3,7 @@ import {
   verifyWithInclusion,
   type VerifyRequest,
   type VerifyWithInclusionRequest,
-} from 'provable-sdk-js';
+} from '@kuip/provable-sdk';
 import { KayrosEnvelope } from './envelope';
 import type {
   EnvelopeVerifyDetails,

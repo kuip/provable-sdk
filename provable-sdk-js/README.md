@@ -1,13 +1,13 @@
 # Provable SDK for TypeScript/JavaScript
 
-`provable-sdk-js` is the Kayros API and verification SDK for TypeScript/JavaScript.
+`@kuip/provable-sdk` is the Kayros API and verification SDK for TypeScript/JavaScript.
 
-If you are working with Provable proof JSON envelopes, use [`provable-proof-js`](../provable-proof-js/README.md) alongside this package.
+If you are working with Provable proof JSON envelopes, use [`@kuip/provable-proof`](../@kuip/provable-proof/README.md) alongside this package.
 
 ## Installation
 
 ```bash
-npm install provable-sdk-js
+npm install @kuip/provable-sdk
 ```
 
 ## Usage
@@ -22,7 +22,7 @@ import {
   get_record_by_hash,
   verify,
   verifyWithInclusion,
-} from 'provable-sdk-js';
+} from '@kuip/provable-sdk';
 
 const dataItem = 'ab'.repeat(32);
 const proof = await prove_single_hash(dataItem);
@@ -52,7 +52,7 @@ import {
   verify,
   verifyWithInclusion,
   setApiKey,
-} from 'provable-sdk-js';
+} from '@kuip/provable-sdk';
 
 const settings = {
   apiKey: process.env.KAYROS_API_KEY!,
@@ -98,7 +98,7 @@ const inclusion = await verifyWithInclusion({
 
 ## Proof Envelopes
 
-Proof JSON parsing and `KayrosEnvelope` live in [`provable-proof-js`](../provable-proof-js/README.md), not in this SDK package.
+Proof JSON parsing and `KayrosEnvelope` live in [`@kuip/provable-proof`](../@kuip/provable-proof/README.md), not in this SDK package.
 
 ## License
 

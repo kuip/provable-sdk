@@ -78,6 +78,6 @@ describe('verifyWithInclusion', () => {
         }
       }
     },
-    60000,
+    30000,
   );
 });

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { KayrosEnvelope } from 'provable-proof-js';
+import { KayrosEnvelope } from '@kuip/provable-proof';
 
 function buildFormSnapshot(formHtml: string, data: any): HTMLElement {
   const container = document.createElement('div');
