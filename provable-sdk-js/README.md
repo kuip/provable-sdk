@@ -96,10 +96,6 @@ const inclusion = await verifyWithInclusion({
 
 `data_type` is required for verification. Provide at least one of `data_item` or `kayros_hash`.
 
-## Proof Envelopes
-
-Proof JSON parsing and `KayrosEnvelope` live in [`@kuip/provable-proof`](../@kuip/provable-proof/README.md), not in this SDK package.
-
 ## License
 
 MIT

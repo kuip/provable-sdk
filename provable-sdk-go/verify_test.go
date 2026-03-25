@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"golang.org/x/crypto/sha3"
 )
 
 type rewriteTransport struct {
@@ -154,7 +156,7 @@ func TestVerifyWithInclusion(t *testing.T) {
 	dataItem := strings.Repeat("11", 32)
 	kayrosHash := strings.Repeat("22", 32)
 	siblingHash := strings.Repeat("33", 32)
-	rootSum := sha256.Sum256(append(mustDecodeHex(kayrosHash), mustDecodeHex(siblingHash)...))
+	rootSum := sha3.Sum256(append(mustDecodeHex(kayrosHash), mustDecodeHex(siblingHash)...))
 	rootHash := hex.EncodeToString(rootSum[:])
 
 	withKayrosServer(t, func(w http.ResponseWriter, r *http.Request) {
@@ -248,8 +250,72 @@ func TestVerifyWithInclusion(t *testing.T) {
 	if result.Details == nil || !result.Details.ProofPathMatch || !result.Details.BatchExistenceMatch || !result.Details.TrustedLevelMatch {
 		t.Fatalf("VerifyWithInclusion() details = %#v", result.Details)
 	}
+	if result.Details.LevelsHashType != "sha3-256" {
+		t.Fatalf("VerifyWithInclusion() levels hash type = %q, want %q", result.Details.LevelsHashType, "sha3-256")
+	}
 	if len(result.Details.LevelChecks) != 1 || !result.Details.LevelChecks[0].Valid {
 		t.Fatalf("VerifyWithInclusion() level checks = %#v", result.Details.LevelChecks)
+	}
+}
+
+func TestVerifyWithInclusionSupportsSHA256Override(t *testing.T) {
+	dataItem := strings.Repeat("11", 32)
+	kayrosHash := strings.Repeat("22", 32)
+	siblingHash := strings.Repeat("33", 32)
+	rootSum := sha256.Sum256(append(mustDecodeHex(kayrosHash), mustDecodeHex(siblingHash)...))
+	rootHash := hex.EncodeToString(rootSum[:])
+
+	withKayrosServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case GetRecordByHashRoute:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"data_item": b64(dataItem),
+				"data_type": "proof_type",
+				"hash_item": b64(kayrosHash),
+				"hash_type": "sha256",
+				"position":  0,
+				"prev_hash": b64(strings.Repeat("00", 32)),
+				"ts":        "123e4567-e89b-12d3-a456-426614174000",
+			})
+		case ComputeHashFromHexRoute:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"hash":       kayrosHash,
+				"hash_type":  "sha256",
+				"input_size": 92,
+			})
+		case GetMerkleProofRoute:
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"success":      true,
+				"data_type":    "proof_type",
+				"hash_item":    kayrosHash,
+				"proof":        []string{kayrosHash, siblingHash, rootHash},
+				"root":         rootHash,
+				"position":     0,
+				"levels":       2,
+				"level_counts": []int{2, 1},
+				"level_starts": []int{0, 0},
+			})
+		default:
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+	})
+
+	result := VerifyWithInclusion(VerifyWithInclusionRequest{
+		VerifyRequest: VerifyRequest{
+			DataType:   "proof_type",
+			KayrosHash: kayrosHash,
+		},
+		LevelsHashType: "sha256",
+	})
+
+	if result == nil || !result.Valid {
+		t.Fatalf("VerifyWithInclusion() = %#v, want valid result", result)
+	}
+	if result.Details == nil || !result.Details.ProofPathMatch {
+		t.Fatalf("VerifyWithInclusion() details = %#v", result.Details)
+	}
+	if result.Details.LevelsHashType != "sha256" {
+		t.Fatalf("VerifyWithInclusion() levels hash type = %q, want %q", result.Details.LevelsHashType, "sha256")
 	}
 }
 

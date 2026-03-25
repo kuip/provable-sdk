@@ -2,6 +2,8 @@
  * Kayros verification helpers.
  */
 
+import { sha3_256 as sha3_256Impl } from 'js-sha3';
+
 import { get_record_by_hash } from './api';
 import {
   compute_hash_from_hex,
@@ -45,6 +47,7 @@ interface VerifyCoreOutcome {
 
 const UUID_GREGORIAN_EPOCH = 122192928000000000n;
 const ZERO_HASH_32 = '00'.repeat(32);
+const DEFAULT_LEVELS_HASH_TYPE = 'sha3-256';
 
 export async function verify(input: VerifyRequest): Promise<VerifyResult> {
   const outcome = await verifyRecordCore(input);
@@ -58,6 +61,11 @@ export async function verifyWithInclusion(input: VerifyWithInclusionRequest): Pr
   }
 
   const { request, apiOptions, record, details } = outcome.state;
+  const levelsHashType = normalizeLevelsHashType(input.levels_hash_type ?? input.levelsHashType);
+  if (typeof levelsHashType !== 'string') {
+    return invalidResult(details, levelsHashType.error);
+  }
+  details.levelsHashType = levelsHashType;
   let proof: NormalizedMerkleProof;
 
   try {
@@ -103,7 +111,7 @@ export async function verifyWithInclusion(input: VerifyWithInclusionRequest): Pr
   }
 
   if (!inclusionMeta.pending) {
-    const proofPathResult = await verifyProofPath(proof, levelCounts);
+    const proofPathResult = await verifyProofPath(proof, levelCounts, levelsHashType);
     details.proofPathMatch = proofPathResult.valid;
     details.localRootHash = proofPathResult.rootHash;
     if (!proofPathResult.valid) {
@@ -502,6 +510,7 @@ function normalizeLevelCounts(counts: number[], levels: number, proofLen: number
 async function verifyProofPath(
   proof: NormalizedMerkleProof,
   levelCounts: number[],
+  levelsHashType: string,
 ): Promise<{ valid: true; rootHash: string } | { valid: false; error: string; rootHash?: string }> {
   let offset = 0;
   let previousRollup = '';
@@ -535,7 +544,7 @@ async function verifyProofPath(
     if (isLastLevel && count === 1) {
       lastRollup = levelHashes[0];
     } else {
-      previousRollup = await sha256HexConcat(levelHashes);
+      previousRollup = await hashHexConcat(levelHashes, levelsHashType);
       if (isLastLevel) {
         lastRollup = previousRollup;
       }
@@ -666,7 +675,27 @@ function levelIndexForPosition(
   return index;
 }
 
-async function sha256HexConcat(hashes: string[]): Promise<string> {
+function normalizeLevelsHashType(input?: string): string | { error: string } {
+  if (!input) {
+    return DEFAULT_LEVELS_HASH_TYPE;
+  }
+
+  const normalized = input.trim().toLowerCase().replace(/_/g, '-');
+  switch (normalized) {
+    case 'sha3':
+    case 'sha3-256':
+      return 'sha3-256';
+    case 'sha-256':
+    case 'sha256':
+      return 'sha256';
+    default:
+      return {
+        error: `Unsupported levels_hash_type: ${input}`,
+      };
+  }
+}
+
+async function hashHexConcat(hashes: string[], levelsHashType: string): Promise<string> {
   const payload = new Uint8Array(hashes.reduce((sum, hash) => sum + hash.length / 2, 0));
   let offset = 0;
   for (const hash of hashes) {
@@ -674,8 +703,17 @@ async function sha256HexConcat(hashes: string[]): Promise<string> {
     payload.set(bytes, offset);
     offset += bytes.length;
   }
-  const digest = await crypto.subtle.digest('SHA-256', payload);
-  return bytesToHex(new Uint8Array(digest));
+
+  switch (levelsHashType) {
+    case 'sha256': {
+      const digest = await crypto.subtle.digest('SHA-256', payload);
+      return bytesToHex(new Uint8Array(digest));
+    }
+    case 'sha3-256':
+      return sha3_256Impl(payload);
+    default:
+      throw new Error(`Unsupported levels_hash_type: ${levelsHashType}`);
+  }
 }
 
 function hashResponseMatches(expectedHash: string, foundHash?: string): boolean {

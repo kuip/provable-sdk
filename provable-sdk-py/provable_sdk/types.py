@@ -39,6 +39,7 @@ class VerifyWithInclusionRequest(VerifyRequest, total=False):
     trusted_root_hash: str
     trusted_level: int
     trusted_position: int
+    levels_hash_type: str
     verify_batch_existence: bool
     level_checks: List[VerifyLevelCheck]
 
@@ -107,6 +108,7 @@ class VerifyResultDetails(TypedDict, total=False):
     trustedRootMatch: bool
     trustedLevelMatch: bool
     batchExistenceMatch: bool
+    levelsHashType: str
     pending: bool
     maxLevel: int
     maxLevelPosition: int

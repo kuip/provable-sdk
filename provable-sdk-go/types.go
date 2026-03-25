@@ -39,6 +39,7 @@ type VerifyWithInclusionRequest struct {
 	TrustedRootHash      string             `json:"trusted_root_hash,omitempty"`
 	TrustedLevel         *int               `json:"trusted_level,omitempty"`
 	TrustedPosition      *int               `json:"trusted_position,omitempty"`
+	LevelsHashType       string             `json:"levels_hash_type,omitempty"`
 	VerifyBatchExistence bool               `json:"verify_batch_existence,omitempty"`
 	LevelChecks          []VerifyLevelCheck `json:"level_checks,omitempty"`
 }
@@ -108,6 +109,7 @@ type VerifyResultDetails struct {
 	TrustedRootMatch    bool                        `json:"trustedRootMatch,omitempty"`
 	TrustedLevelMatch   bool                        `json:"trustedLevelMatch,omitempty"`
 	BatchExistenceMatch bool                        `json:"batchExistenceMatch,omitempty"`
+	LevelsHashType      string                      `json:"levelsHashType,omitempty"`
 	Pending             bool                        `json:"pending,omitempty"`
 	MaxLevel            int                         `json:"maxLevel,omitempty"`
 	MaxLevelPosition    int64                       `json:"maxLevelPosition,omitempty"`

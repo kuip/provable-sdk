@@ -21,6 +21,7 @@ from .types import VerifyRequest, VerifyResult, VerifyWithInclusionRequest
 
 UUID_GREGORIAN_EPOCH = 122192928000000000
 ZERO_HASH_32 = "00" * 32
+DEFAULT_LEVELS_HASH_TYPE = "sha3-256"
 
 
 def verify(request: VerifyRequest) -> VerifyResult:
@@ -37,6 +38,10 @@ def verify_with_inclusion(request: VerifyWithInclusionRequest) -> VerifyResult:
     details = state["details"]
     api_key = state["api_key"]
     record = state["record"]
+    levels_hash_type = _normalize_levels_hash_type(request.get("levels_hash_type"))
+    if isinstance(levels_hash_type, dict):
+        return _invalid_result(details, levels_hash_type["error"])
+    details["levelsHashType"] = levels_hash_type
 
     try:
         proof = _normalize_proof(
@@ -88,7 +93,7 @@ def verify_with_inclusion(request: VerifyWithInclusionRequest) -> VerifyResult:
         return _invalid_result(details, error)
 
     if not pending:
-        ok, error, root_hash = _verify_proof_path(proof, level_counts)
+        ok, error, root_hash = _verify_proof_path(proof, level_counts, levels_hash_type)
         details["proofPathMatch"] = ok
         details["localRootHash"] = root_hash
         if not ok:
@@ -404,8 +409,8 @@ def _normalize_proof(raw: Dict[str, Any]) -> Dict[str, Any]:
         raise ValueError(raw.get("error") or raw.get("message") or "Missing merkle proof")
 
     hash_item = _normalize_hex(raw.get("hash_item"))
-    root = _normalize_hex(raw.get("root"))
-    if not raw.get("data_type") or not hash_item or not root or not isinstance(raw.get("proof"), list):
+    root = _normalize_hex(raw.get("root")) or ""
+    if not raw.get("data_type") or not hash_item or not isinstance(raw.get("proof"), list):
         raise ValueError("Invalid merkle proof structure")
 
     proof_hashes: List[str] = []
@@ -445,7 +450,7 @@ def _normalize_level_counts(counts: List[int], levels: int, proof_len: int) -> L
     return [256] * (levels - 1) + [remaining]
 
 
-def _verify_proof_path(proof: Dict[str, Any], level_counts: List[int]) -> Tuple[bool, str, str]:
+def _verify_proof_path(proof: Dict[str, Any], level_counts: List[int], levels_hash_type: str) -> Tuple[bool, str, str]:
     offset = 0
     previous_rollup = ""
     last_rollup = ""
@@ -472,7 +477,7 @@ def _verify_proof_path(proof: Dict[str, Any], level_counts: List[int]) -> Tuple[
         if is_last_level and count == 1:
             last_rollup = level_hashes[0]
         else:
-            previous_rollup = _sha256_hex_concat(level_hashes)
+            previous_rollup = _hash_hex_concat(level_hashes, levels_hash_type)
             if is_last_level:
                 last_rollup = previous_rollup
 
@@ -481,7 +486,7 @@ def _verify_proof_path(proof: Dict[str, Any], level_counts: List[int]) -> Tuple[
 
     if not last_rollup:
         return False, "missing final hash", ""
-    if last_rollup != proof["root"]:
+    if proof["root"] and last_rollup != proof["root"]:
         return False, f"root hash mismatch computed={last_rollup} root={proof['root']}", last_rollup
     return True, "", last_rollup
 
@@ -559,11 +564,28 @@ def _level_index_for_position(level: int, current_position: int, count: int, lev
     return index
 
 
-def _sha256_hex_concat(hashes: List[str]) -> str:
+def _normalize_levels_hash_type(value: Optional[str]) -> str | Dict[str, str]:
+    if not value:
+        return DEFAULT_LEVELS_HASH_TYPE
+
+    normalized = value.strip().lower().replace("_", "-")
+    if normalized in {"sha3", "sha3-256"}:
+        return "sha3-256"
+    if normalized in {"sha256", "sha-256"}:
+        return "sha256"
+
+    return {"error": f"Unsupported levels_hash_type: {value}"}
+
+
+def _hash_hex_concat(hashes: List[str], levels_hash_type: str) -> str:
     payload = bytearray()
     for hash_value in hashes:
         payload.extend(bytes.fromhex(hash_value))
-    return hashlib.sha256(payload).hexdigest()
+    if levels_hash_type == "sha256":
+        return hashlib.sha256(payload).hexdigest()
+    if levels_hash_type == "sha3-256":
+        return hashlib.sha3_256(payload).hexdigest()
+    raise ValueError(f"Unsupported levels_hash_type: {levels_hash_type}")
 
 
 def _hash_response_matches(expected_hash: str, found_hash: Optional[str]) -> bool:

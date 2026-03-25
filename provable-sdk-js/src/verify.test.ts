@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createHash } from 'node:crypto';
+import { sha3_256 as sha3_256Impl } from 'js-sha3';
 
 import { verify, verifyWithInclusion } from './verify';
 import { DEFAULT_USER_KEY, setUserKey } from './config';
@@ -101,4 +103,171 @@ describe('verify', () => {
     expect(result.error).toContain('Multiple records found');
   });
 
+});
+
+describe('verifyWithInclusion', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    setUserKey(DEFAULT_USER_KEY);
+  });
+
+  it('uses sha3-256 for Merkle rollups by default', async () => {
+    const dataItem = '11'.repeat(32);
+    const kayrosHash = '22'.repeat(32);
+    const siblingHash = '33'.repeat(32);
+    const rootHash = sha3_256Impl(Buffer.from(kayrosHash + siblingHash, 'hex'));
+
+    (global.fetch as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data_item: toBase64(dataItem),
+          data_type: 'proof_type',
+          hash_item: toBase64(kayrosHash),
+          hash_type: 'sha256',
+          position: 0,
+          prev_hash: toBase64('00'.repeat(32)),
+          ts: '123e4567-e89b-12d3-a456-426614174000',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          hash: kayrosHash,
+          hash_type: 'sha256',
+          input_size: 92,
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data_type: 'proof_type',
+          hash_item: kayrosHash,
+          proof: [kayrosHash, siblingHash, rootHash],
+          root: rootHash,
+          position: 0,
+          levels: 2,
+          level_counts: [2, 1],
+          level_starts: [0, 0],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          exists: true,
+          level: 1,
+          position: 0,
+          data_type: 'proof_type',
+          found_hash: rootHash,
+          message: 'ok',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          exists: true,
+          level: 0,
+          position: 0,
+          data_type: 'proof_type',
+          found_hash: kayrosHash,
+          message: 'ok',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data_type: 'proof_type',
+          level: 0,
+          start: 0,
+          count: 2,
+          results: [1, 1],
+          matches: 2,
+          mismatches: 0,
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data_type: 'proof_type',
+          level: 1,
+          start: 0,
+          count: 1,
+          results: [1],
+          matches: 1,
+          mismatches: 0,
+        }),
+      });
+
+    const result = await verifyWithInclusion({
+      data_type: 'proof_type',
+      kayros_hash: kayrosHash,
+      trusted_root_hash: rootHash,
+      trusted_level: 1,
+      trusted_position: 0,
+      verify_batch_existence: true,
+      level_checks: [{ level: 0, position: 0 }],
+      apiKey: 'private-key-456',
+    });
+
+    expect(result.valid).toBe(true);
+    expect(result.details?.levelsHashType).toBe('sha3-256');
+    expect(result.details?.proofPathMatch).toBe(true);
+    expect(result.details?.batchExistenceMatch).toBe(true);
+    expect(result.details?.trustedLevelMatch).toBe(true);
+    expect(result.details?.levelChecks?.[0]?.valid).toBe(true);
+  });
+
+  it('supports overriding the Merkle levels hash algorithm', async () => {
+    const dataItem = '11'.repeat(32);
+    const kayrosHash = '22'.repeat(32);
+    const siblingHash = '33'.repeat(32);
+    const rootHash = createHash('sha256').update(Buffer.from(kayrosHash + siblingHash, 'hex')).digest('hex');
+
+    (global.fetch as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data_item: toBase64(dataItem),
+          data_type: 'proof_type',
+          hash_item: toBase64(kayrosHash),
+          hash_type: 'sha256',
+          position: 0,
+          prev_hash: toBase64('00'.repeat(32)),
+          ts: '123e4567-e89b-12d3-a456-426614174000',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          hash: kayrosHash,
+          hash_type: 'sha256',
+          input_size: 92,
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data_type: 'proof_type',
+          hash_item: kayrosHash,
+          proof: [kayrosHash, siblingHash, rootHash],
+          root: rootHash,
+          position: 0,
+          levels: 2,
+          level_counts: [2, 1],
+          level_starts: [0, 0],
+        }),
+      });
+
+    const result = await verifyWithInclusion({
+      data_type: 'proof_type',
+      kayros_hash: kayrosHash,
+      levels_hash_type: 'sha256',
+    });
+
+    expect(result.valid).toBe(true);
+    expect(result.details?.levelsHashType).toBe('sha256');
+    expect(result.details?.proofPathMatch).toBe(true);
+  });
 });

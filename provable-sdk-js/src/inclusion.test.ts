@@ -12,6 +12,7 @@ import { verifyWithInclusion } from './verify';
 import { setKayrosHost, getKayrosHost } from './config';
 
 const DATA_TYPE = 'benchmark_s32';
+const LEVELS_HASH_TYPE = process.env.KAYROS_LEVELS_HASH_TYPE;
 
 const cases: {
   hash: string;
@@ -32,7 +33,7 @@ const cases: {
   {
     hash: 'e2d9d0b00f9f5f2a1ceeb603b0ce13343e8a9650a16dcd6a74d7fb212700ba1e',
     valid: true,
-    pending: true,
+    pending: false,
   },
 ];
 
@@ -52,6 +53,7 @@ describe('verifyWithInclusion', () => {
       const result = await verifyWithInclusion({
         data_type: DATA_TYPE,
         kayros_hash: hash,
+        levels_hash_type: LEVELS_HASH_TYPE,
         verify_batch_existence: true,
       });
 

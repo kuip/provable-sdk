@@ -114,6 +114,8 @@ export interface VerifyWithInclusionRequest extends VerifyRequest {
   trustedLevel?: number;
   trusted_position?: number;
   trustedPosition?: number;
+  levels_hash_type?: string;
+  levelsHashType?: string;
   verify_batch_existence?: boolean;
   verifyBatchExistence?: boolean;
   level_checks?: VerifyLevelCheck[];
@@ -187,6 +189,7 @@ export interface VerifyResult {
     trustedRootMatch?: boolean;
     trustedLevelMatch?: boolean;
     batchExistenceMatch?: boolean;
+    levelsHashType?: string;
     pending?: boolean;
     maxLevel?: number;
     maxLevelPosition?: number;

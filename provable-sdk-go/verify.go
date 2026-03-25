@@ -11,9 +11,12 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"golang.org/x/crypto/sha3"
 )
 
 const zeroHash32 = "0000000000000000000000000000000000000000000000000000000000000000"
+const defaultLevelsHashType = "sha3-256"
 
 func firstNonEmpty(values ...string) string {
 	for _, value := range values {
@@ -42,6 +45,12 @@ func VerifyWithInclusion(request VerifyWithInclusionRequest) *VerifyResult {
 	if state == nil {
 		return result
 	}
+
+	levelsHashType, err := normalizeLevelsHashType(request.LevelsHashType)
+	if err != nil {
+		return invalidResult(state.details, err.Error())
+	}
+	state.details.LevelsHashType = levelsHashType
 
 	proofResp, err := getMerkleProofForVerify(state.request.DataType, state.record.KayrosHash, state.request.APIKey)
 	if err != nil {
@@ -82,7 +91,7 @@ func VerifyWithInclusion(request VerifyWithInclusionRequest) *VerifyResult {
 	state.details.TargetPositionMatch = true
 
 	if !pending {
-		rootHash, err := verifyProofPath(proof, levelCounts)
+		rootHash, err := verifyProofPath(proof, levelCounts, levelsHashType)
 		state.details.LocalRootHash = rootHash
 		state.details.ProofPathMatch = err == nil
 		if err != nil {
@@ -522,7 +531,7 @@ func normalizeMerkleProof(raw *MerkleProofResponse) (*NormalizedMerkleProof, err
 
 	hashItem := normalizeHexString(raw.HashItem)
 	root := normalizeHexString(raw.Root)
-	if raw.DataType == "" || hashItem == "" || root == "" || len(raw.Proof) == 0 {
+	if raw.DataType == "" || hashItem == "" || len(raw.Proof) == 0 {
 		return nil, fmt.Errorf("invalid merkle proof structure")
 	}
 	proof := make([]string, 0, len(raw.Proof))
@@ -552,7 +561,7 @@ func normalizeMerkleProof(raw *MerkleProofResponse) (*NormalizedMerkleProof, err
 	}, nil
 }
 
-func verifyProofPath(proof *NormalizedMerkleProof, levelCounts []int) (string, error) {
+func verifyProofPath(proof *NormalizedMerkleProof, levelCounts []int, levelsHashType string) (string, error) {
 	offset := 0
 	lastRollup := ""
 	prevRollup := ""
@@ -579,7 +588,7 @@ func verifyProofPath(proof *NormalizedMerkleProof, levelCounts []int) (string, e
 		if isLast && count == 1 {
 			lastRollup = levelHashes[0]
 		} else {
-			rollup, err := sha256HexConcat(levelHashes)
+			rollup, err := hashHexConcat(levelHashes, levelsHashType)
 			if err != nil {
 				return "", err
 			}
@@ -595,7 +604,7 @@ func verifyProofPath(proof *NormalizedMerkleProof, levelCounts []int) (string, e
 	if lastRollup == "" {
 		return "", fmt.Errorf("missing final hash")
 	}
-	if !strings.EqualFold(lastRollup, proof.Root) {
+	if proof.Root != "" && !strings.EqualFold(lastRollup, proof.Root) {
 		return lastRollup, fmt.Errorf("root hash mismatch computed=%s root=%s", lastRollup, proof.Root)
 	}
 	return lastRollup, nil
@@ -732,7 +741,23 @@ func levelIndexForPosition(level int, currentPosition int64, count int, levelSta
 	return int(index), nil
 }
 
-func sha256HexConcat(hashes []string) (string, error) {
+func normalizeLevelsHashType(value string) (string, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return defaultLevelsHashType, nil
+	}
+
+	switch strings.ToLower(strings.ReplaceAll(trimmed, "_", "-")) {
+	case "sha3", "sha3-256":
+		return "sha3-256", nil
+	case "sha256", "sha-256":
+		return "sha256", nil
+	default:
+		return "", fmt.Errorf("unsupported levels_hash_type: %s", value)
+	}
+}
+
+func hashHexConcat(hashes []string, levelsHashType string) (string, error) {
 	payload := make([]byte, 0)
 	for _, hash := range hashes {
 		decoded, err := hex.DecodeString(strings.TrimSpace(hash))
@@ -741,8 +766,17 @@ func sha256HexConcat(hashes []string) (string, error) {
 		}
 		payload = append(payload, decoded...)
 	}
-	sum := sha256.Sum256(payload)
-	return hex.EncodeToString(sum[:]), nil
+
+	switch levelsHashType {
+	case "sha256":
+		sum := sha256.Sum256(payload)
+		return hex.EncodeToString(sum[:]), nil
+	case "sha3-256":
+		sum := sha3.Sum256(payload)
+		return hex.EncodeToString(sum[:]), nil
+	default:
+		return "", fmt.Errorf("unsupported levels_hash_type: %s", levelsHashType)
+	}
 }
 
 func dataTypeMatches(record *NormalizedKayrosRecord, expected string) bool {
