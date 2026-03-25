@@ -122,6 +122,8 @@ func main() {
 
 `DataType` is required for verification. Provide at least one of `DataItem` or `KayrosHash`.
 
+`VerifyWithInclusionRequest` also accepts `LevelsHashType`, which controls the Merkle rollup hash used for local inclusion replay. It defaults to `sha3-256` and also accepts `sha256`.
+
 ## License
 
 MIT

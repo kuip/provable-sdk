@@ -76,13 +76,15 @@ inclusion = verify_with_inclusion({
 - `prove_single_hash(data_hash, data_type=None, api_key=None)`
 - `get_record_by_hash(kayros_hash, data_type=None, api_key=None)`
 - `get_record_by_data_item(data_type, data_item, api_key=None)`
-- `get_merkle_proof({"data_type": ..., "hash": ...}, api_key=None)`
+- `get_merkle_proof(data_type, hash=..., position=..., api_key=None)`
 - `verify_hash_existence({"data_type": ..., "level": ..., "position": ..., "hash": ...}, api_key=None)`
 - `verify_hash_batch({"data_type": ..., "level": ..., "start": ..., "hashes": [...]}, api_key=None)`
 - `verify({"data_type": ..., "data_item"?: ..., "kayros_hash"?: ..., "api_key"?: ...})`
-- `verify_with_inclusion({"data_type": ..., "data_item"?: ..., "kayros_hash"?: ..., "api_key"?: ..., "trusted_root_hash"?: ..., "trusted_level"?: ..., "trusted_position"?: ..., "verify_batch_existence"?: ..., "level_checks"?: [...]})`
+- `verify_with_inclusion({"data_type": ..., "data_item"?: ..., "kayros_hash"?: ..., "api_key"?: ..., "trusted_root_hash"?: ..., "trusted_level"?: ..., "trusted_position"?: ..., "levels_hash_type"?: ..., "verify_batch_existence"?: ..., "level_checks"?: [...]})`
 
 `data_type` is required for verification. Provide at least one of `data_item` or `kayros_hash`.
+
+`levels_hash_type` controls the Merkle rollup hash used for local inclusion replay. It defaults to `sha3-256` and also accepts `sha256`.
 
 ## License
 

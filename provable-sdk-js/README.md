@@ -2,7 +2,7 @@
 
 `@kuip/provable-sdk` is the Kayros API and verification SDK for TypeScript/JavaScript.
 
-If you are working with Provable proof JSON envelopes, use [`@kuip/provable-proof`](../@kuip/provable-proof/README.md) alongside this package.
+If you are working with Provable proof JSON envelopes, use [`@kuip/provable-proof`](../provable-proof-js/README.md) alongside this package.
 
 ## Installation
 
@@ -26,7 +26,7 @@ import {
 
 const dataItem = 'ab'.repeat(32);
 const proof = await prove_single_hash(dataItem);
-const kayrosHash = proof.data!.computed_hash_hex;
+const kayrosHash = proof.hash!;
 
 const record = await get_record_by_hash(kayrosHash);
 
@@ -66,7 +66,7 @@ const proof = await prove_single_hash('ab'.repeat(32), {
   dataType: settings.dataType,
 });
 
-const kayrosHash = proof.data!.computed_hash_hex;
+const kayrosHash = proof.hash!;
 
 const verified = await verify({
   data_type: settings.dataType,
@@ -87,14 +87,16 @@ const inclusion = await verifyWithInclusion({
 
 - `prove_single_hash(dataHash, { apiKey?, dataType? })`
 - `get_record_by_hash(kayrosHash, { apiKey?, dataType? })`
-- `get_record_by_data_item({ data_type, data_item }, { apiKey? })`
+- `get_record_by_data_item(dataType, dataItem, { apiKey?, limit? })`
 - `get_merkle_proof({ data_type, hash }, { apiKey? })`
 - `verify_hash_existence({ data_type, level, position, hash }, { apiKey? })`
 - `verify_hash_batch({ data_type, level, start, hashes }, { apiKey? })`
 - `verify({ data_type, data_item?, kayros_hash?, apiKey? })`
-- `verifyWithInclusion({ data_type, data_item?, kayros_hash?, apiKey?, trusted_root_hash?, trusted_level?, trusted_position?, verify_batch_existence?, level_checks? })`
+- `verifyWithInclusion({ data_type, data_item?, kayros_hash?, apiKey?, trusted_root_hash?, trusted_level?, trusted_position?, levels_hash_type?, verify_batch_existence?, level_checks? })`
 
 `data_type` is required for verification. Provide at least one of `data_item` or `kayros_hash`.
+
+`levels_hash_type` controls the Merkle rollup hash used for local inclusion replay. It defaults to `sha3-256` and also accepts `sha256`.
 
 ## License
 
