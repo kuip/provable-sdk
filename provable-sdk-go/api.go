@@ -12,7 +12,7 @@ import (
 )
 
 // ProveSingleHash calls the Kayros API to prove a single hash
-// dataType is optional and defaults to "provable_sdk" padded to 32 bytes
+// dataType is optional and defaults to "provable_sdk"
 func ProveSingleHash(dataHash string, dataType ...string) (*ProveSingleHashResponse, error) {
 	var opts *RequestOptions
 	if len(dataType) > 0 {

@@ -29,7 +29,7 @@ def prove_single_hash(
 
     Args:
         data_hash: The hash to prove (hex string)
-        data_type: Optional data type identifier (defaults to "provable_sdk" padded to 32 bytes)
+        data_type: Optional data type identifier (defaults to "provable_sdk")
 
     Returns:
         The Kayros response

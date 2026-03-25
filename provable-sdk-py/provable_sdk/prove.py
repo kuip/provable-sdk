@@ -18,7 +18,7 @@ def prove_data(
 
     Args:
         data: Input data as bytes
-        data_type: Optional data type identifier (defaults to "provable_sdk" padded to 32 bytes)
+        data_type: Optional data type identifier (defaults to "provable_sdk")
 
     Returns:
         The Kayros response
@@ -38,7 +38,7 @@ def prove_data_str(
 
     Args:
         s: Input string
-        data_type: Optional data type identifier (defaults to "provable_sdk" padded to 32 bytes)
+        data_type: Optional data type identifier (defaults to "provable_sdk")
 
     Returns:
         The Kayros response

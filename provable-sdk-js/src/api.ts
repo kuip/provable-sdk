@@ -23,7 +23,7 @@ function normalizeRecordLookupOptions(dataTypeOrOptions?: string | RecordLookupO
 /**
  * Call Kayros API to prove a single hash
  * @param dataHash - The hash to prove (hex string)
- * @param dataType - Optional data type identifier (defaults to "provable_sdk" padded to 32 bytes)
+ * @param dataType - Optional data type identifier (defaults to "provable_sdk")
  * @returns Promise with the Kayros response
  */
 export async function prove_single_hash(

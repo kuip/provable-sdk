@@ -10,7 +10,7 @@ import type { ProveOptions } from './options';
 /**
  * Prove data by computing its hash and calling Kayros API
  * @param data - Input data as Uint8Array
- * @param dataType - Optional data type identifier (defaults to "provable_sdk" padded to 32 bytes)
+ * @param dataType - Optional data type identifier (defaults to "provable_sdk")
  * @returns Promise with the Kayros response
  */
 export async function prove_data(
@@ -24,7 +24,7 @@ export async function prove_data(
 /**
  * Prove string data by computing its hash and calling Kayros API
  * @param str - Input string
- * @param dataType - Optional data type identifier (defaults to "provable_sdk" padded to 32 bytes)
+ * @param dataType - Optional data type identifier (defaults to "provable_sdk")
  * @returns Promise with the Kayros response
  */
 export async function prove_data_str(

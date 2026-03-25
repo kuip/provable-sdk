@@ -79,7 +79,7 @@ def get_record_url(hash: str, data_type: str = DATA_TYPE) -> str:
 
 def format_data_type_for_query(data_type: str) -> str:
     """
-    Format data type for Kayros query params (pad to 32 bytes with nulls).
+    Format data type for Kayros query params.
     """
     from urllib.parse import quote
     return quote(data_type, safe="")

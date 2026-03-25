@@ -81,7 +81,9 @@ export function getRecordUrl(hash: string, dataType?: string): string {
  * @throws Error if data type exceeds 32 bytes
  */
 /**
- * Format data type for Kayros query params (pad to 32 bytes with nulls).
+ * Format data type for Kayros query params.
+ *
+ * Legacy hex-encoded data types are decoded back to plain text for query compatibility.
  */
 export function formatDataTypeForQuery(dataType: string): string {
   const normalized = dataType.startsWith('0x') ? dataType.slice(2) : dataType;
