@@ -1,6 +1,6 @@
 .PHONY: help test test-js test-py test-go coverage coverage-js coverage-py coverage-go install install-js install-py install-go install-ui clean \
-	build build-js build-py build-go build-ui publish publish-js publish-proof publish-ui publish-py publish-go publish-all \
-	publish-dry-run publish-dry-run-js publish-dry-run-py tag-go version-js version-py version-go
+	build build-js build-proof build-py build-go build-ui publish publish-js publish-proof publish-ui publish-py publish-go publish-all \
+	publish-dry-run publish-dry-run-js publish-dry-run-proof publish-dry-run-ui publish-dry-run-py tag-go version-js version-py version-go
 
 # Default target
 help:
@@ -25,6 +25,7 @@ help:
 	@echo ""
 	@echo "  make build         - Build all SDK packages"
 	@echo "  make build-js      - Build TypeScript package"
+	@echo "  make build-proof   - Build Proof package"
 	@echo "  make build-ui      - Build UI package"
 	@echo "  make build-py      - Build Python package"
 	@echo "  make build-go      - Build/verify Go package"
@@ -36,8 +37,10 @@ help:
 	@echo "  make publish-py    - Publish Python package to PyPI"
 	@echo "  make publish-go    - Tag and push Go module (defaults to JS version; override with VERSION=vX.Y.Z)"
 	@echo ""
-	@echo "  make publish-dry-run    - Test publish for JS and Python without uploading"
+	@echo "  make publish-dry-run    - Test publish for JS, Proof, UI, and Python without uploading"
 	@echo "  make publish-dry-run-js - Test npm publish without uploading"
+	@echo "  make publish-dry-run-proof - Test Proof npm publish without uploading"
+	@echo "  make publish-dry-run-ui - Test UI npm publish without uploading"
 	@echo "  make publish-dry-run-py - Test PyPI publish without uploading"
 	@echo ""
 	@echo "  make clean         - Clean build artifacts"
@@ -86,19 +89,17 @@ coverage-go:
 	@echo "Go coverage report: provable-sdk-go/coverage.html"
 
 # Install all dependencies
-install: install-js install-ui install-py install-go
+install: install-js install-py install-go
 	@echo ""
 	@echo "✓ All dependencies installed!"
 
-# Install TypeScript dependencies
+# Install JavaScript workspace dependencies
 install-js:
-	@echo "Installing TypeScript SDK dependencies..."
-	@cd provable-sdk-js && npm install
+	@echo "Installing JavaScript workspace dependencies..."
+	@npm install
 
-# Install UI dependencies
-install-ui:
-	@echo "Installing UI package dependencies..."
-	@cd provable-sdk-ui && npm install
+# Backwards-compatible alias for the workspace install.
+install-ui: install-js
 
 # Install Python dependencies
 install-py:
@@ -157,18 +158,24 @@ ci: test coverage
 	@echo "✓ CI tests complete!"
 
 # Build targets
-build: build-js build-ui build-py build-go
+build: build-js build-proof build-ui build-py build-go
 	@echo ""
 	@echo "✓ All packages built successfully!"
 
 build-js:
 	@echo "Building TypeScript SDK..."
-	@cd provable-sdk-js && npm run build
+	@npm run build -w @kuip/provable-sdk
 	@echo "✓ TypeScript build complete!"
+
+build-proof:
+	@echo "Building Proof package..."
+	@npm run build -w @kuip/provable-proof
+	@echo "✓ Proof build complete!"
 
 build-ui:
 	@echo "Building UI package..."
-	@cd provable-sdk-ui && npm run build && npm run build:browser
+	@npm run build -w @kuip/provable-ui
+	@npm run build:browser -w @kuip/provable-ui
 	@echo "✓ UI build complete!"
 
 build-py:
@@ -200,7 +207,7 @@ publish-js: test-js
 	git push origin "js-v$$VERSION"
 	@echo "✓ TypeScript SDK published and tagged!"
 
-publish-proof:
+publish-proof: build-proof
 	@echo "Publishing Proof package to npm..."
 	@VERSION=$$(cd provable-proof-js && node -p "require('./package.json').version"); \
 	echo "Version: $$VERSION"; \
@@ -211,7 +218,7 @@ publish-proof:
 	cd provable-proof-js && npm publish --access public
 	@echo "✓ Proof package published!"
 
-publish-ui:
+publish-ui: build-ui
 	@echo "Publishing UI package to npm..."
 	@VERSION=$$(cd provable-sdk-ui && node -p "require('./package.json').version"); \
 	echo "Version: $$VERSION"; \
@@ -282,7 +289,7 @@ publish-all:
 	@echo "✓ All SDK packages published!"
 
 # Dry run publish (test without actually publishing)
-publish-dry-run: publish-dry-run-js publish-dry-run-py
+publish-dry-run: publish-dry-run-js publish-dry-run-proof publish-dry-run-ui publish-dry-run-py
 	@echo ""
 	@echo "✓ Dry run completed for all packages!"
 
@@ -290,6 +297,16 @@ publish-dry-run-js:
 	@echo "Dry run: Publishing TypeScript SDK..."
 	@cd provable-sdk-js && npm publish --access public --dry-run
 	@echo "✓ TypeScript dry run complete!"
+
+publish-dry-run-proof: build-proof
+	@echo "Dry run: Publishing Proof package..."
+	@cd provable-proof-js && npm publish --access public --dry-run
+	@echo "✓ Proof dry run complete!"
+
+publish-dry-run-ui: build-ui
+	@echo "Dry run: Publishing UI package..."
+	@cd provable-sdk-ui && npm publish --access public --dry-run
+	@echo "✓ UI dry run complete!"
 
 publish-dry-run-py: build-py
 	@echo "Dry run: Publishing Python SDK..."

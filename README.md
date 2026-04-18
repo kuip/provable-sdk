@@ -17,6 +17,13 @@ Each SDK has its own README with detailed usage examples:
 
 ## Development Quick Start
 
+```bash
+make install
+make test
+make build
+make publish
+```
+
 The JavaScript packages use npm workspaces for local development.
 From the repo root, npm links the workspace packages locally.
 
@@ -24,73 +31,6 @@ From the repo root, npm links the workspace packages locally.
 npm install
 npm run build
 ```
-
-## Install Dependencies
-
-```bash
-make install
-```
-
-This installs dependencies for the SDK and UI packages.
-
-### Run All Tests
-
-```bash
-make test
-```
-
-### Run Tests with Coverage
-
-```bash
-make coverage
-```
-
-## Available Make Commands
-
-### Testing
-
-| Command | Description |
-|---------|-------------|
-| `make test` | Run all tests across all SDKs |
-| `make test-js` | Run TypeScript SDK tests |
-| `make test-py` | Run Python SDK tests |
-| `make test-go` | Run Go SDK tests |
-| `make test-quick` | Quick test run (minimal output) |
-
-### Coverage
-
-| Command | Description |
-|---------|-------------|
-| `make coverage` | Generate coverage for all SDKs |
-| `make coverage-js` | TypeScript coverage report |
-| `make coverage-py` | Python coverage report (HTML + terminal) |
-| `make coverage-go` | Go coverage report (HTML) |
-
-### Installation
-
-| Command | Description |
-|---------|-------------|
-| `make install` | Install dependencies for all SDKs |
-| `make install-js` | Install TypeScript dependencies |
-| `make install-py` | Install Python dependencies |
-| `make install-go` | Download Go modules |
-
-### Maintenance
-
-| Command | Description |
-|---------|-------------|
-| `make clean` | Remove build artifacts and caches |
-| `make watch-js` | Run TypeScript tests in watch mode |
-| `make ci` | Run full CI suite (tests + coverage) |
-
-### Specific Test Files
-
-| Command | Description |
-|---------|-------------|
-| `make test-js-hash` | Run only TypeScript hash tests |
-| `make test-py-hash` | Run only Python hash tests |
-| `make test-go-hash` | Run only Go hash tests |
-
 
 ## Development Workflow
 
