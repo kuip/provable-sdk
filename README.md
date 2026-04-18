@@ -1,115 +1,9 @@
 # Provable SDK
 
-A multi-language SDK for interacting with the Provable API. This monorepo contains implementations for TypeScript/JavaScript, Python, and Go.
-
+A multi-language SDK for interacting with the Provable API.
 Cryptographic, timestamped notarization for your critical APIs.
 
 Do not send raw data to Provable. Use the embedded `hash` function or hash the data with your preferred hash function.
-
-## Packages
-
-This monorepo contains five packages:
-
-- **TypeScript/JavaScript** (`provable-sdk-js/`) — `@kuip/provable-sdk` — For Node.js and browser applications
-- **Proof envelope helpers** (`provable-proof-js/`) — `@kuip/provable-proof` — For Provable proof JSON and proof-format verification helpers
-- **Python** (`provable-sdk-py/`) - For Python 3.8+ applications
-- **Go** (`provable-sdk-go/`) - For Go 1.23+ applications
-- **UI components** (`provable-sdk-ui/`) — `@kuip/provable-ui` — For React and browser proof viewers
-
-## Features
-
-All SDKs provide:
-
-### Lightnet Integration
-- Database operations (query, stats, browse)
-- Hash verification and computation
-- Merkle proof generation and verification
-- gRPC operations
-
-### Configuration
-- Default data type: `"provable_sdk"`
-- Customizable per-call data types
-- Per-request verification input using `data_type` plus `data_item` or `kayros_hash`
-- Merkle inclusion verification with optional `levels_hash_type`, level checks, and batch existence checks
-
-## Data Type
-
-All SDKs default to using `"provable_sdk"` as the data type identifier.
-
-### 1. Default usage
-
-If you do not configure anything:
-
-- the SDK uses the built-in default key
-- the SDK uses the default `provable_sdk` data type
-
-Examples:
-
-**TypeScript:**
-```typescript
-import { prove_single_hash } from '@kuip/provable-sdk';
-
-prove_single_hash(myHash);
-```
-
-**Python:**
-```python
-from provable_sdk import prove_single_hash
-
-prove_single_hash(my_hash)
-```
-
-**Go:**
-```go
-provable "github.com/provable/provable-sdk-go"
-
-provable.ProveSingleHash(myHash)
-```
-
-### 2. Usage with API key and custom data type
-
-If your application stores user-specific settings, pass the private API key and custom data type into the SDK before you prove or verify data.
-
-**TypeScript:**
-```typescript
-import { prove_single_hash, setApiKey } from '@kuip/provable-sdk';
-
-setApiKey(settings.apiKey);
-prove_single_hash(myHash, { apiKey: settings.apiKey, dataType: settings.dataType });
-```
-
-**Python:**
-```python
-from provable_sdk import prove_single_hash, set_api_key
-
-set_api_key(settings["api_key"])
-prove_single_hash(my_hash, data_type=settings["data_type"], api_key=settings["api_key"])
-```
-
-**Go:**
-```go
-provable "github.com/provable/provable-sdk-go"
-
-provable.SetAPIKey(settings.APIKey)
-provable.ProveSingleHashWithOptions(myHash, &provable.RequestOptions{APIKey: settings.APIKey, DataType: settings.DataType})
-```
-
-You can override the data type on any API call:
-
-**TypeScript:**
-```typescript
-prove_single_hash(myHash, { dataType: customDataType });
-```
-
-**Python:**
-```python
-prove_single_hash(my_hash, data_type=custom_data_type)
-```
-
-**Go:**
-```go
-provable.ProveSingleHash(myHash, customDataType)
-```
 
 ## SDK-Specific Documentation
 
@@ -123,7 +17,15 @@ Each SDK has its own README with detailed usage examples:
 
 ## Development Quick Start
 
-### Install Dependencies
+The JavaScript packages use npm workspaces for local development.
+From the repo root, npm links the workspace packages locally.
+
+```bash
+npm install
+npm run build
+```
+
+## Install Dependencies
 
 ```bash
 make install

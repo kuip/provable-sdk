@@ -1,6 +1,6 @@
 {
   "name": "@kuip/provable-proof",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Provable proof envelope format for TypeScript/JavaScript",
   "main": "src/index.ts",
   "types": "src/index.ts",
@@ -11,7 +11,7 @@
   "author": "Provable",
   "license": "MIT",
   "dependencies": {
-    "@kuip/provable-sdk": "file:../provable-sdk-js"
+    "@kuip/provable-sdk": "^0.0.10"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

@@ -4,12 +4,6 @@ import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [react()],
-  resolve: {
-    alias: {
-      '@kuip/provable-proof': resolve(__dirname, '../provable-proof-js/src/index.ts'),
-      '@kuip/provable-sdk': resolve(__dirname, '../provable-sdk-js/src/index.ts'),
-    },
-  },
   define: {
     'process.env.NODE_ENV': JSON.stringify('production')
   },

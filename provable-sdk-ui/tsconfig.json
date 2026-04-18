@@ -4,11 +4,6 @@
     "lib": ["DOM", "ES2020"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "baseUrl": ".",
-    "paths": {
-      "@kuip/provable-proof": ["../provable-proof-js/dist/index.d.ts"],
-      "@kuip/provable-sdk": ["../provable-sdk-js/dist/index.d.ts"]
-    },
     "jsx": "react-jsx",
     "strict": true,
     "noEmit": true,

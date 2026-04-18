@@ -1,0 +1,16 @@
+{
+  "name": "provable-sdk-workspace",
+  "private": true,
+  "workspaces": [
+    "provable-sdk-js",
+    "provable-proof-js",
+    "provable-sdk-ui"
+  ],
+  "scripts": {
+    "build": "npm run build -w @kuip/provable-sdk && npm run build -w @kuip/provable-proof && npm run build -w @kuip/provable-ui",
+    "build:js": "npm run build -w @kuip/provable-sdk",
+    "build:proof": "npm run build -w @kuip/provable-proof",
+    "build:ui": "npm run build -w @kuip/provable-ui",
+    "test:js": "npm test -w @kuip/provable-sdk"
+  }
+}
