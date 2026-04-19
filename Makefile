@@ -211,23 +211,35 @@ publish-proof: build-proof
 	@echo "Publishing Proof package to npm..."
 	@VERSION=$$(cd provable-proof-js && node -p "require('./package.json').version"); \
 	echo "Version: $$VERSION"; \
-	echo "⚠️  This will publish to npm"; \
+	echo "⚠️  This will:"; \
+	echo "  1. Publish to npm"; \
+	echo "  2. Create git tag proof-v$$VERSION"; \
+	echo "  3. Push tag and commits to main"; \
 	echo ""; \
 	echo "Press Ctrl+C to cancel, or Enter to continue..."; \
 	read -r; \
-	cd provable-proof-js && npm publish --access public
-	@echo "✓ Proof package published!"
+	cd provable-proof-js && npm publish --access public && \
+	cd .. && git tag -a "proof-v$$VERSION" -m "Release Proof package v$$VERSION" && \
+	git push origin main && \
+	git push origin "proof-v$$VERSION"
+	@echo "✓ Proof package published and tagged!"
 
 publish-ui: build-ui
 	@echo "Publishing UI package to npm..."
 	@VERSION=$$(cd provable-sdk-ui && node -p "require('./package.json').version"); \
 	echo "Version: $$VERSION"; \
-	echo "⚠️  This will publish to npm"; \
+	echo "⚠️  This will:"; \
+	echo "  1. Publish to npm"; \
+	echo "  2. Create git tag ui-v$$VERSION"; \
+	echo "  3. Push tag and commits to main"; \
 	echo ""; \
 	echo "Press Ctrl+C to cancel, or Enter to continue..."; \
 	read -r; \
-	cd provable-sdk-ui && npm publish --access public
-	@echo "✓ UI package published!"
+	cd provable-sdk-ui && npm publish --access public && \
+	cd .. && git tag -a "ui-v$$VERSION" -m "Release UI package v$$VERSION" && \
+	git push origin main && \
+	git push origin "ui-v$$VERSION"
+	@echo "✓ UI package published and tagged!"
 
 publish-py: test-py build-py
 	@echo "Publishing Python SDK to PyPI..."
