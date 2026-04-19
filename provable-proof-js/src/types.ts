@@ -3,7 +3,7 @@ import type {
   VerifyResult,
 } from '@kuip/provable-sdk';
 
-export interface KayrosMetadata {
+export interface KayrosData {
   hash?: string;
   hashAlgorithm?: string;
   timestamp?: {
@@ -12,25 +12,61 @@ export interface KayrosMetadata {
   };
 }
 
-export interface KayrosMetadataV0 {
-  success: boolean;
-  message?: string;
-  data?: {
-    success: boolean;
-    message: string;
-    data_type: string;
-    data_item: string;
-    computed_hash_hex: string;
-    timeuuid_hex: string;
-    data_type_hex: string;
-    data_item_hex: string;
-  };
-  error?: string;
-  hash?: string;
-  hashAlgorithm?: string;
+export type KayrosMetadata = KayrosData;
+
+export type ProofDataFormat = 'web_form' | 'web_page' | 'email' | '';
+
+export interface KayrosProof {
+  data: string;
+  data_format?: ProofDataFormat;
+  kayros: KayrosData;
 }
 
-export type AnyKayrosMetadata = KayrosMetadata | KayrosMetadataV0;
+export type ProvableEmailProofData = string;
+
+export interface ProvableFormProofData {
+  id?: string;
+  pageUrl?: string;
+  form?: {
+    formHtml?: string;
+    data?: Record<string, unknown>;
+    source?: string;
+    [key: string]: unknown;
+  };
+  network?: {
+    url?: string;
+    method?: string;
+    formData?: Record<string, unknown>;
+    [key: string]: unknown;
+  } | Array<Record<string, unknown>>;
+  [key: string]: unknown;
+}
+
+export interface ProvableWebProofSource<T = unknown> {
+  value: T;
+  hash: string;
+}
+
+export interface ProvableWebProofData {
+  meta?: ProvableWebProofSource<{
+    url?: string;
+    capturedAt?: string;
+    proofLevel?: string | number;
+    [key: string]: unknown;
+  }>;
+  screenshot?: ProvableWebProofSource<string>;
+  outerHTML?: ProvableWebProofSource<string>;
+  fetchedHTML?: ProvableWebProofSource<string>;
+  serverHTML?: ProvableWebProofSource<{
+    body?: string;
+    base64Encoded?: boolean;
+    [key: string]: unknown;
+  }>;
+  networkResponse?: ProvableWebProofSource<unknown>;
+  networkRequests?: ProvableWebProofSource<unknown>;
+  scripts?: ProvableWebProofSource<unknown>;
+  [key: string]: ProvableWebProofSource<unknown> | undefined;
+}
 
 export interface EnvelopeVerifyOverrides {
   data_type?: string;

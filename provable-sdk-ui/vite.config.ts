@@ -6,9 +6,12 @@ export default defineConfig({
   plugins: [react()],
   build: {
     lib: {
-      entry: resolve(__dirname, 'src/index.ts'),
+      entry: {
+        index: resolve(__dirname, 'src/index.ts'),
+        formSnapshot: resolve(__dirname, 'src/formSnapshot.ts')
+      },
       name: 'ProvableSdkUi',
-      fileName: format => (format === 'es' ? 'index.js' : 'index.cjs'),
+      fileName: (format, entryName) => (format === 'es' ? `${entryName}.js` : `${entryName}.cjs`),
       formats: ['es', 'cjs']
     },
     rollupOptions: {

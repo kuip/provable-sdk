@@ -4,6 +4,8 @@ Reusable proof UI components for Provable/Kayros proofs.
 
 `@kuip/provable-ui` expects proof envelopes from `@kuip/provable-proof`.
 
+Proof JSON uses `{ "data": "<base64>", "data_format": "web_form" | "web_page" | "email" | "", "kayros": { ... } }`. The UI decodes `data` through `KayrosEnvelope` before rendering form, web, email, or raw-data views.
+
 ## React usage
 
 ```tsx
@@ -11,7 +13,7 @@ import { ProofViewer } from '@kuip/provable-ui';
 import { KayrosEnvelope } from '@kuip/provable-proof';
 import '@kuip/provable-ui/styles.css';
 
-const envelope = new KayrosEnvelope(data, kayrosMetadata);
+const envelope = new KayrosEnvelope(dataBase64, kayrosMetadata);
 
 export function App() {
   return <ProofViewer envelope={envelope} theme="light" />;
@@ -39,7 +41,7 @@ Legacy shape checks override the label:
 <script src="/path/to/@kuip/provable-ui/dist/browser/@kuip/provable-ui.iife.js"></script>
 <div id="proof-root"></div>
 <script>
-  const envelope = { data: window.proofData, kayros: window.kayrosMetadata };
+  const envelope = { data: window.proofDataBase64, kayros: window.kayrosMetadata };
   window.ProvableSdkUi.mountProofViewer(document.getElementById('proof-root'), {
     envelope,
     theme: 'dark'

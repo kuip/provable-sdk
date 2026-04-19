@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { KayrosEnvelope } from '@kuip/provable-proof';
 
 export function WebSnapshotPanel({ envelope }: { envelope: KayrosEnvelope }) {
-  const data = envelope.data as any;
+  const data = envelope.parseData<any>();
   const meta = data?.meta?.value;
   const screenshot = data?.screenshot?.value as string | undefined;
   const outerHtml = data?.outerHTML?.value as string | undefined;

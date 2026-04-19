@@ -13,10 +13,7 @@ export function ProofDetailsPanel({
   title?: string;
   showRemoteRecord?: boolean;
 }) {
-  const proofJson = JSON.stringify({
-    data: envelope.data,
-    kayros: envelope.kayros
-  }, null, 2);
+  const proofJson = JSON.stringify(envelope, null, 2);
 
   return (
     <section className="pv-section">

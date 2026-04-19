@@ -36,8 +36,6 @@ export function VerificationPanel({
     timestampLocal
   } = resolvedVerification;
 
-  const dataHashLabel = normalized?.isV0() ? 'Envelope Hash (V0)' : 'Envelope Hash';
-
   return (
     <section className="pv-section">
       <h2 className="pv-section-title">{title}</h2>
@@ -63,7 +61,7 @@ export function VerificationPanel({
 
             {dataHash && (
               <>
-                <div className="pv-label">{dataHashLabel}</div>
+                <div className="pv-label">Envelope Hash</div>
                 <div className="pv-value">
                   <div className="pv-hash">{dataHash}</div>
                 </div>

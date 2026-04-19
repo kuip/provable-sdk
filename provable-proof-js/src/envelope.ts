@@ -1,24 +1,8 @@
 import { keccak256, sha256 } from '@kuip/provable-sdk';
-import type { AnyKayrosMetadata } from './types';
+import type { KayrosData, ProofDataFormat } from './types';
 
 type HashAlgorithm = 'sha256' | 'keccak256';
-type MetadataKind = 'timestamp_v1' | 'legacy_v0' | 'unknown';
 type JsonObject = Record<string, unknown>;
-
-interface MetadataAccessor {
-  readonly kind: MetadataKind;
-  getDataHash(): string | undefined;
-  getDataType(): string | undefined;
-  getDataTypeLabel(): string | undefined;
-  getDataTypeLookupCandidates(): Array<string | undefined>;
-  getKayrosHash(): string | undefined;
-  getTimeUUID(): string | undefined;
-  getHashAlgorithm(): HashAlgorithm;
-}
-
-interface EnvelopeOptions {
-  rawDataJson?: string;
-}
 
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
@@ -47,37 +31,16 @@ function firstString(...values: unknown[]): string | undefined {
   return undefined;
 }
 
-function decodeHexString(value: string): string | undefined {
-  const normalized = value.startsWith('0x') ? value.slice(2) : value;
-  if (normalized.length === 0 || normalized.length % 2 !== 0) {
-    return undefined;
-  }
-  if (!/^[0-9a-fA-F]+$/.test(normalized)) {
-    return undefined;
-  }
-
-  const bytes = new Uint8Array(normalized.length / 2);
-  for (let i = 0; i < normalized.length; i += 2) {
-    const byte = Number.parseInt(normalized.slice(i, i + 2), 16);
-    if (Number.isNaN(byte)) {
-      return undefined;
-    }
-    bytes[i / 2] = byte;
-  }
-  return textDecoder.decode(bytes);
-}
-
 function decodeBase64ToBytes(value: string): Uint8Array | undefined {
-  const normalized = value.trim();
-  if (normalized.length === 0 || normalized.length % 4 !== 0) {
+  const compact = value.trim().replace(/\s+/g, '');
+  if (compact.length === 0 || !/^[A-Za-z0-9+/_-]+={0,2}$/.test(compact)) {
     return undefined;
   }
-  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(normalized)) {
-    return undefined;
-  }
+  const normalized = compact.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
 
   try {
-    const binary = atob(normalized);
+    const binary = atob(padded);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) {
       bytes[i] = binary.charCodeAt(i);
@@ -86,6 +49,52 @@ function decodeBase64ToBytes(value: string): Uint8Array | undefined {
   } catch {
     return undefined;
   }
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function normalizeHash(value: unknown): string | undefined {
+  if (typeof value !== 'string' || value.length === 0) {
+    return undefined;
+  }
+  const hex = value.trim().toLowerCase().replace(/^0x/, '');
+  if (/^[0-9a-f]+$/.test(hex) && hex.length % 2 === 0) {
+    return hex;
+  }
+  const bytes = decodeBase64ToBytes(value);
+  return bytes ? bytesToHex(bytes) : undefined;
+}
+
+function encodeBytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary);
+}
+
+function encodeTextToBase64(value: string): string {
+  return encodeBytesToBase64(textEncoder.encode(value));
+}
+
+function encodeData(data: unknown): string {
+  if (data instanceof Uint8Array) {
+    return encodeBytesToBase64(data);
+  }
+  if (typeof data === 'string') {
+    return encodeTextToBase64(data);
+  }
+  return encodeTextToBase64(JSON.stringify(data));
+}
+
+function decodeRequiredBase64(value: string): Uint8Array {
+  const bytes = decodeBase64ToBytes(value);
+  if (!bytes) {
+    throw new Error('Invalid proof data: expected base64 string');
+  }
+  return bytes;
 }
 
 function normalizeHashAlgorithm(value: unknown): HashAlgorithm {
@@ -99,479 +108,6 @@ function normalizeHashAlgorithm(value: unknown): HashAlgorithm {
   return 'sha256';
 }
 
-function toDataTypeLabel(value: string | undefined): string | undefined {
-  if (!value) {
-    return undefined;
-  }
-  const decoded = decodeHexString(value);
-  return decoded ?? value;
-}
-
-function uniqueStrings(values: Array<string | undefined>): string[] {
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const value of values) {
-    if (!value || seen.has(value)) {
-      continue;
-    }
-    seen.add(value);
-    result.push(value);
-  }
-  return result;
-}
-
-class TimestampMetadataAccessor implements MetadataAccessor {
-  readonly kind: MetadataKind = 'timestamp_v1';
-
-  constructor(private readonly kayros: JsonObject) {}
-
-  private get timestampResponse(): unknown {
-    return readPath(this.kayros, ['timestamp', 'response']);
-  }
-
-  private get registerResponse(): unknown {
-    const response = this.timestampResponse;
-    return readPath(response, ['response']) ?? response;
-  }
-
-  private get rawDataType(): string | undefined {
-    return firstString(
-      readPath(this.registerResponse, ['data_type']),
-      readPath(this.registerResponse, ['data', 'data_type']),
-      readPath(this.timestampResponse, ['data', 'data_type'])
-    );
-  }
-
-  private get legacyDataTypeHex(): string | undefined {
-    return firstString(
-      readPath(this.registerResponse, ['data_type_hex']),
-      readPath(this.registerResponse, ['data', 'data_type_hex']),
-      readPath(this.timestampResponse, ['data', 'data_type_hex']),
-      readPath(this.kayros, ['data', 'data_type_hex'])
-    );
-  }
-
-  getDataHash(): string | undefined {
-    return firstString(
-      readPath(this.kayros, ['hash']),
-      readPath(this.registerResponse, ['data_item_hex']),
-      readPath(this.registerResponse, ['data', 'data_item_hex']),
-      readPath(this.timestampResponse, ['data', 'data_item_hex']),
-      readPath(this.kayros, ['data', 'data_item_hex'])
-    );
-  }
-
-  getDataType(): string | undefined {
-    const raw = this.rawDataType;
-    if (raw) {
-      return raw;
-    }
-    const hex = this.legacyDataTypeHex;
-    if (!hex) {
-      return undefined;
-    }
-    return decodeHexString(hex) ?? hex;
-  }
-
-  getDataTypeLabel(): string | undefined {
-    return toDataTypeLabel(this.getDataType());
-  }
-
-  getDataTypeLookupCandidates(): Array<string | undefined> {
-    const raw = this.rawDataType;
-    const decodedRaw = raw ? decodeHexString(raw) : undefined;
-    const type = this.getDataType();
-    const label = this.getDataTypeLabel();
-    const decodedType = type ? decodeHexString(type) : undefined;
-    return uniqueStrings([raw, decodedRaw, type, decodedType, label]);
-  }
-
-  getKayrosHash(): string | undefined {
-    return firstString(
-      readPath(this.timestampResponse, ['data', 'computed_hash_hex']),
-      readPath(this.registerResponse, ['data', 'computed_hash_hex']),
-      readPath(this.registerResponse, ['computed_hash_hex']),
-      readPath(this.registerResponse, ['hash']),
-      readPath(this.kayros, ['data', 'computed_hash_hex'])
-    );
-  }
-
-  getTimeUUID(): string | undefined {
-    return firstString(
-      readPath(this.registerResponse, ['data', 'timeuuid_hex']),
-      readPath(this.registerResponse, ['timeuuid_hex']),
-      readPath(this.registerResponse, ['data', 'timeuuid']),
-      readPath(this.registerResponse, ['timeuuid']),
-      readPath(this.timestampResponse, ['data', 'timeuuid_hex']),
-      readPath(this.timestampResponse, ['data', 'timeuuid']),
-      readPath(this.kayros, ['data', 'timeuuid_hex'])
-    );
-  }
-
-  getHashAlgorithm(): HashAlgorithm {
-    return normalizeHashAlgorithm(readPath(this.kayros, ['hashAlgorithm']));
-  }
-}
-
-class LegacyMetadataAccessor implements MetadataAccessor {
-  readonly kind: MetadataKind = 'legacy_v0';
-
-  constructor(private readonly kayros: JsonObject) {}
-
-  private get rawDataType(): string | undefined {
-    return firstString(
-      readPath(this.kayros, ['data', 'data_type']),
-      readPath(this.kayros, ['data_type'])
-    );
-  }
-
-  private get legacyDataTypeHex(): string | undefined {
-    return firstString(
-      readPath(this.kayros, ['data', 'data_type_hex']),
-      readPath(this.kayros, ['data_type_hex']),
-      readPath(this.kayros, ['timestamp', 'response', 'data', 'data_type_hex'])
-    );
-  }
-
-  getDataHash(): string | undefined {
-    return firstString(
-      readPath(this.kayros, ['hash']),
-      readPath(this.kayros, ['data', 'data_item_hex']),
-      readPath(this.kayros, ['timestamp', 'response', 'data', 'data_item_hex'])
-    );
-  }
-
-  getDataType(): string | undefined {
-    const raw = this.rawDataType;
-    if (raw) {
-      return raw;
-    }
-    const hex = this.legacyDataTypeHex;
-    if (!hex) {
-      return undefined;
-    }
-    return decodeHexString(hex) ?? hex;
-  }
-
-  getDataTypeLabel(): string | undefined {
-    return toDataTypeLabel(this.getDataType());
-  }
-
-  getDataTypeLookupCandidates(): Array<string | undefined> {
-    const raw = this.rawDataType;
-    const decodedRaw = raw ? decodeHexString(raw) : undefined;
-    const type = this.getDataType();
-    const label = this.getDataTypeLabel();
-    const decodedType = type ? decodeHexString(type) : undefined;
-    return uniqueStrings([raw, decodedRaw, type, decodedType, label]);
-  }
-
-  getKayrosHash(): string | undefined {
-    return firstString(
-      readPath(this.kayros, ['data', 'computed_hash_hex']),
-      readPath(this.kayros, ['computed_hash_hex']),
-      readPath(this.kayros, ['timestamp', 'response', 'data', 'computed_hash_hex'])
-    );
-  }
-
-  getTimeUUID(): string | undefined {
-    return firstString(
-      readPath(this.kayros, ['data', 'timeuuid_hex']),
-      readPath(this.kayros, ['timeuuid_hex']),
-      readPath(this.kayros, ['timestamp', 'response', 'data', 'timeuuid_hex'])
-    );
-  }
-
-  getHashAlgorithm(): HashAlgorithm {
-    return normalizeHashAlgorithm(readPath(this.kayros, ['hashAlgorithm']));
-  }
-}
-
-class UnknownMetadataAccessor implements MetadataAccessor {
-  readonly kind: MetadataKind = 'unknown';
-  private readonly timestampAccessor: TimestampMetadataAccessor;
-  private readonly legacyAccessor: LegacyMetadataAccessor;
-
-  constructor(private readonly kayros: JsonObject) {
-    this.timestampAccessor = new TimestampMetadataAccessor(kayros);
-    this.legacyAccessor = new LegacyMetadataAccessor(kayros);
-  }
-
-  getDataHash(): string | undefined {
-    return this.timestampAccessor.getDataHash() ?? this.legacyAccessor.getDataHash();
-  }
-
-  getDataType(): string | undefined {
-    return this.timestampAccessor.getDataType() ?? this.legacyAccessor.getDataType();
-  }
-
-  getDataTypeLabel(): string | undefined {
-    return this.timestampAccessor.getDataTypeLabel() ?? this.legacyAccessor.getDataTypeLabel();
-  }
-
-  getDataTypeLookupCandidates(): Array<string | undefined> {
-    return uniqueStrings([
-      ...this.timestampAccessor.getDataTypeLookupCandidates(),
-      ...this.legacyAccessor.getDataTypeLookupCandidates(),
-    ]);
-  }
-
-  getKayrosHash(): string | undefined {
-    return this.timestampAccessor.getKayrosHash() ?? this.legacyAccessor.getKayrosHash();
-  }
-
-  getTimeUUID(): string | undefined {
-    return this.timestampAccessor.getTimeUUID() ?? this.legacyAccessor.getTimeUUID();
-  }
-
-  getHashAlgorithm(): HashAlgorithm {
-    return normalizeHashAlgorithm(readPath(this.kayros, ['hashAlgorithm']));
-  }
-}
-
-function createMetadataAccessor(kayros: AnyKayrosMetadata): MetadataAccessor {
-  if (!isRecord(kayros)) {
-    return new UnknownMetadataAccessor({});
-  }
-  if (readPath(kayros, ['timestamp', 'response']) !== undefined) {
-    return new TimestampMetadataAccessor(kayros);
-  }
-  if (
-    readPath(kayros, ['data', 'data_item_hex']) !== undefined
-    || readPath(kayros, ['data', 'computed_hash_hex']) !== undefined
-    || readPath(kayros, ['success']) !== undefined
-  ) {
-    return new LegacyMetadataAccessor(kayros);
-  }
-  return new UnknownMetadataAccessor(kayros);
-}
-
-class EnvelopeDataAccessor<T = unknown> {
-  constructor(
-    private readonly data: T,
-    private readonly metadataKind: MetadataKind,
-    private readonly rawDataJson?: string
-  ) {}
-
-  private getUtf8Bytes(value: string): Uint8Array {
-    return textEncoder.encode(value);
-  }
-
-  private getObjectBytes(): Uint8Array {
-    if (typeof this.rawDataJson === 'string') {
-      return this.getUtf8Bytes(this.rawDataJson);
-    }
-    return this.getUtf8Bytes(JSON.stringify(this.data));
-  }
-
-  getPrimaryBytes(): Uint8Array {
-    if (typeof this.data !== 'string') {
-      return this.getObjectBytes();
-    }
-
-    const base64Bytes = decodeBase64ToBytes(this.data);
-    if (this.metadataKind === 'legacy_v0' && base64Bytes) {
-      return base64Bytes;
-    }
-    return this.getUtf8Bytes(this.data);
-  }
-
-  getByteCandidates(): Uint8Array[] {
-    const candidates: Uint8Array[] = [];
-    const seen = new Set<string>();
-    const add = (bytes: Uint8Array | undefined) => {
-      if (!bytes) {
-        return;
-      }
-      const key = Array.from(bytes).map((byte) => byte.toString(16).padStart(2, '0')).join('');
-      if (seen.has(key)) {
-        return;
-      }
-      seen.add(key);
-      candidates.push(bytes);
-    };
-
-    if (typeof this.data === 'string') {
-      const utf8Bytes = this.getUtf8Bytes(this.data);
-      const base64Bytes = decodeBase64ToBytes(this.data);
-      if (this.metadataKind === 'legacy_v0') {
-        add(base64Bytes);
-        add(utf8Bytes);
-      } else {
-        add(utf8Bytes);
-        add(base64Bytes);
-      }
-      return candidates;
-    }
-
-    if (typeof this.rawDataJson === 'string') {
-      add(this.getUtf8Bytes(this.rawDataJson));
-    }
-    add(this.getUtf8Bytes(JSON.stringify(this.data)));
-    return candidates;
-  }
-}
-
-function skipWhitespace(text: string, index: number): number {
-  let i = index;
-  while (i < text.length && /\s/.test(text[i])) {
-    i += 1;
-  }
-  return i;
-}
-
-function readJsonStringToken(text: string, start: number): { value: string; end: number } | undefined {
-  if (text[start] !== '"') {
-    return undefined;
-  }
-
-  let i = start + 1;
-  let escaped = false;
-  while (i < text.length) {
-    const char = text[i];
-    if (escaped) {
-      escaped = false;
-      i += 1;
-      continue;
-    }
-    if (char === '\\') {
-      escaped = true;
-      i += 1;
-      continue;
-    }
-    if (char === '"') {
-      const raw = text.slice(start, i + 1);
-      return {
-        value: JSON.parse(raw) as string,
-        end: i + 1,
-      };
-    }
-    i += 1;
-  }
-  return undefined;
-}
-
-function readJsonValueEnd(text: string, start: number): number | undefined {
-  if (start >= text.length) {
-    return undefined;
-  }
-
-  const firstChar = text[start];
-  if (firstChar === '"') {
-    const token = readJsonStringToken(text, start);
-    return token?.end;
-  }
-
-  if (firstChar === '{' || firstChar === '[') {
-    const stack: string[] = [firstChar];
-    let i = start + 1;
-    let inString = false;
-    let escaped = false;
-    while (i < text.length) {
-      const char = text[i];
-      if (inString) {
-        if (escaped) {
-          escaped = false;
-        } else if (char === '\\') {
-          escaped = true;
-        } else if (char === '"') {
-          inString = false;
-        }
-        i += 1;
-        continue;
-      }
-
-      if (char === '"') {
-        inString = true;
-        i += 1;
-        continue;
-      }
-      if (char === '{' || char === '[') {
-        stack.push(char);
-        i += 1;
-        continue;
-      }
-      if (char === '}' || char === ']') {
-        const opener = stack.pop();
-        if (!opener) {
-          return undefined;
-        }
-        const matches = (opener === '{' && char === '}') || (opener === '[' && char === ']');
-        if (!matches) {
-          return undefined;
-        }
-        i += 1;
-        if (stack.length === 0) {
-          return i;
-        }
-        continue;
-      }
-      i += 1;
-    }
-    return undefined;
-  }
-
-  let i = start;
-  while (i < text.length) {
-    const char = text[i];
-    if (char === ',' || char === '}' || char === ']') {
-      break;
-    }
-    i += 1;
-  }
-  let end = i;
-  while (end > start && /\s/.test(text[end - 1])) {
-    end -= 1;
-  }
-  return end;
-}
-
-function extractTopLevelPropertyValue(jsonText: string, propertyName: string): string | undefined {
-  let i = skipWhitespace(jsonText, 0);
-  if (jsonText[i] !== '{') {
-    return undefined;
-  }
-  i += 1;
-
-  while (i < jsonText.length) {
-    i = skipWhitespace(jsonText, i);
-    if (jsonText[i] === '}') {
-      return undefined;
-    }
-
-    const keyToken = readJsonStringToken(jsonText, i);
-    if (!keyToken) {
-      return undefined;
-    }
-    i = skipWhitespace(jsonText, keyToken.end);
-    if (jsonText[i] !== ':') {
-      return undefined;
-    }
-    i += 1;
-    i = skipWhitespace(jsonText, i);
-    const valueStart = i;
-    const valueEnd = readJsonValueEnd(jsonText, i);
-    if (valueEnd === undefined) {
-      return undefined;
-    }
-
-    if (keyToken.value === propertyName) {
-      return jsonText.slice(valueStart, valueEnd);
-    }
-
-    i = skipWhitespace(jsonText, valueEnd);
-    if (jsonText[i] === ',') {
-      i += 1;
-      continue;
-    }
-    if (jsonText[i] === '}') {
-      return undefined;
-    }
-    return undefined;
-  }
-  return undefined;
-}
-
 async function hashBytes(bytes: Uint8Array, algorithm: HashAlgorithm): Promise<string> {
   if (algorithm === 'keccak256') {
     return keccak256(bytes);
@@ -580,91 +116,108 @@ async function hashBytes(bytes: Uint8Array, algorithm: HashAlgorithm): Promise<s
 }
 
 /**
- * Kayros envelope with data and proof metadata.
- * - `fromJSON` keeps raw top-level `data` bytes for deterministic re-hashing.
- * - Metadata extraction is delegated to version-specific accessors.
+ * Canonical Kayros proof envelope.
+ * - `data` is always base64 in serialized proof JSON.
+ * - `kayros` is the timestamp metadata returned for that payload hash.
  */
 export class KayrosEnvelope<T = unknown> {
-  public readonly data: T;
-  public readonly kayros: AnyKayrosMetadata;
-  private readonly metadata: MetadataAccessor;
-  private readonly dataAccessor: EnvelopeDataAccessor<T>;
+  public readonly data: string;
+  public readonly data_format: ProofDataFormat;
+  public readonly kayros: KayrosData;
+  private readonly dataBytes: Uint8Array;
 
-  constructor(data: T, kayros: AnyKayrosMetadata, options?: EnvelopeOptions) {
-    this.data = data;
+  constructor(data: string, kayros: KayrosData, dataFormat: ProofDataFormat = '') {
+    this.data = data.trim();
+    this.data_format = dataFormat;
     this.kayros = kayros;
-    this.metadata = createMetadataAccessor(kayros);
-    this.dataAccessor = new EnvelopeDataAccessor(data, this.metadata.kind, options?.rawDataJson);
+    this.dataBytes = decodeRequiredBase64(this.data);
   }
 
-  static fromJSON(jsonText: string): KayrosEnvelope<unknown> {
-    const parsed = JSON.parse(jsonText) as { data?: unknown; kayros?: AnyKayrosMetadata };
+  static fromData<T>(data: T, kayros: KayrosData, dataFormat: ProofDataFormat = ''): KayrosEnvelope {
+    return new KayrosEnvelope(encodeData(data), kayros, dataFormat);
+  }
+
+  static fromJSON(jsonText: string): KayrosEnvelope {
+    const parsed = JSON.parse(jsonText) as { data?: unknown; data_format?: unknown; kayros?: KayrosData };
     if (!parsed || typeof parsed !== 'object') {
       throw new Error('Invalid proof JSON: expected object');
     }
     if (!('data' in parsed) || !('kayros' in parsed)) {
       throw new Error('Invalid proof JSON: expected { data, kayros }');
     }
-    const rawDataJson = extractTopLevelPropertyValue(jsonText, 'data');
-    return new KayrosEnvelope(parsed.data, parsed.kayros as AnyKayrosMetadata, { rawDataJson });
+    if (typeof parsed.data !== 'string') {
+      throw new Error('Invalid proof JSON: expected data to be base64 string');
+    }
+    if (!isRecord(parsed.kayros)) {
+      throw new Error('Invalid proof JSON: expected kayros metadata object');
+    }
+    const dataFormat = typeof parsed.data_format === 'string'
+      ? parsed.data_format as ProofDataFormat
+      : '';
+    return new KayrosEnvelope(parsed.data, parsed.kayros as KayrosData, dataFormat);
+  }
+
+  getDataFormat(): ProofDataFormat {
+    return this.data_format || '';
   }
 
   getDataHash(): string | undefined {
-    return this.metadata.getDataHash();
+    return normalizeHash(this.kayros.hash);
   }
 
   getDataType(): string | undefined {
-    return this.metadata.getDataType();
+    return firstString(readPath(this.kayros, ['timestamp', 'response', 'data', 'data_type']));
   }
 
   getDataTypeLabel(): string | undefined {
-    return this.metadata.getDataTypeLabel();
+    return this.getDataType();
   }
 
   getDataTypeLookupCandidates(): Array<string | undefined> {
-    return this.metadata.getDataTypeLookupCandidates();
+    return [this.getDataType()];
   }
 
   getKayrosHash(): string | undefined {
-    return this.metadata.getKayrosHash();
+    return normalizeHash(
+      firstString(
+        readPath(this.kayros, ['timestamp', 'response', 'response', 'hash']),
+        readPath(this.kayros, ['timestamp', 'response', 'data', 'hash_item']),
+      ),
+    );
   }
 
   getTimeUUID(): string | undefined {
-    return this.metadata.getTimeUUID();
+    return firstString(
+      readPath(this.kayros, ['timestamp', 'response', 'response', 'timeuuid']),
+      readPath(this.kayros, ['timestamp', 'response', 'data', 'ts']),
+    );
   }
 
   getHashAlgorithm(): string {
-    return this.metadata.getHashAlgorithm();
-  }
-
-  isV0(): boolean {
-    return this.metadata.kind === 'legacy_v0';
+    return normalizeHashAlgorithm(this.kayros.hashAlgorithm);
   }
 
   getData(): Uint8Array {
-    return this.dataAccessor.getPrimaryBytes();
+    return this.dataBytes;
+  }
+
+  getDataText(): string {
+    return textDecoder.decode(this.dataBytes);
+  }
+
+  parseData<U = unknown>(): U {
+    return JSON.parse(this.getDataText()) as U;
+  }
+
+  toJSON(): { data: string; data_format: ProofDataFormat; kayros: KayrosData } {
+    return {
+      data: this.data,
+      data_format: this.data_format,
+      kayros: this.kayros,
+    };
   }
 
   async computeDataHash(): Promise<string> {
-    const preferred = this.metadata.getHashAlgorithm();
-    const alternate: HashAlgorithm = preferred === 'keccak256' ? 'sha256' : 'keccak256';
-    const expected = this.getDataHash()?.toLowerCase();
-    const bytesCandidates = this.dataAccessor.getByteCandidates();
-
-    if (expected) {
-      for (const bytes of bytesCandidates) {
-        const preferredHash = await hashBytes(bytes, preferred);
-        if (preferredHash === expected) {
-          return preferredHash;
-        }
-        const alternateHash = await hashBytes(bytes, alternate);
-        if (alternateHash === expected) {
-          return alternateHash;
-        }
-      }
-    }
-
-    const primaryBytes = this.dataAccessor.getPrimaryBytes();
-    return hashBytes(primaryBytes, preferred);
+    return hashBytes(this.dataBytes, this.getHashAlgorithm() as HashAlgorithm);
   }
 }

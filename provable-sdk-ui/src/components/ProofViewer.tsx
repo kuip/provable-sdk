@@ -19,13 +19,20 @@ export function ProofViewer({
 }) {
   const verification = useKayrosVerification(envelope);
   const dataTypeLabel = (envelope.getDataTypeLabel() || 'provable_sdk').toLowerCase();
-  const data = envelope.data as any;
+  const dataFormat = envelope.getDataFormat();
+  const data = safeParseEnvelopeData(envelope);
   const isObject = data && typeof data === 'object' && !Array.isArray(data);
   const hasFormPayload = isObject && 'form' in data;
   const hasWebPayload = isObject && ('outerHTML' in data || 'scripts' in data);
 
   let variant = dataTypeLabel;
-  if (hasFormPayload) {
+  if (dataFormat === 'web_form') {
+    variant = 'provable_forms';
+  } else if (dataFormat === 'web_page') {
+    variant = 'provable_web';
+  } else if (dataFormat === 'email') {
+    variant = 'provable_email';
+  } else if (hasFormPayload) {
     variant = 'provable_forms';
   } else if (hasWebPayload) {
     variant = 'provable_web';
@@ -48,4 +55,12 @@ export function ProofViewer({
       </div>
     </ProvableUiRoot>
   );
+}
+
+function safeParseEnvelopeData(envelope: KayrosEnvelope): unknown {
+  try {
+    return envelope.parseData();
+  } catch {
+    return undefined;
+  }
 }

@@ -157,51 +157,127 @@
 }
 
 .pv-form-snapshot {
+  --pv-form-accent: var(--pv-accent, var(--accent, #0f766e));
+  --pv-form-border: var(--pv-border, var(--textarea-border, #e6e2dc));
+  --pv-form-panel: var(--pv-panel, var(--textarea-bg, #ffffff));
+  --pv-form-surface: var(--pv-code-bg, var(--card-bg, #f2f4f5));
+  --pv-form-text: var(--pv-text, var(--fg, #1f2a2e));
+  --pv-form-muted: var(--pv-muted, #6b7280);
   margin-top: 12px;
-  border: 1px solid var(--pv-border);
+  border: 1px solid var(--pv-form-border);
   border-radius: 12px;
-  background: var(--pv-code-bg);
-  padding: 12px;
+  background: var(--pv-form-surface);
+  padding: 16px;
   max-height: 520px;
   overflow: auto;
 }
 
+.pv-form-snapshot-inner {
+  --pv-form-accent: var(--pv-accent, var(--accent, #0f766e));
+  --pv-form-border: var(--pv-border, var(--textarea-border, #e6e2dc));
+  --pv-form-panel: var(--pv-panel, var(--textarea-bg, #ffffff));
+  --pv-form-text: var(--pv-text, var(--fg, #1f2a2e));
+  --pv-form-muted: var(--pv-muted, #6b7280);
+  width: 100%;
+  max-height: 100%;
+  overflow: auto;
+  color: var(--pv-form-text);
+}
+
 .pv-form-snapshot.pv-empty {
   text-align: center;
-  color: var(--pv-muted);
+  color: var(--pv-form-muted);
   padding: 24px;
 }
 
-.pv-form-snapshot * {
+:where(.pv-form-snapshot, .pv-form-snapshot-inner) form,
+:where(.pv-form-snapshot, .pv-form-snapshot-inner) > div {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: none;
+  max-height: 100%;
+  overflow: visible;
+}
+
+:where(.pv-form-snapshot, .pv-form-snapshot-inner) * {
   max-width: 100%;
+  position: static !important;
 }
 
-.pv-form-snapshot input,
-.pv-form-snapshot textarea,
-.pv-form-snapshot select,
-.pv-form-snapshot button {
+:where(.pv-form-snapshot, .pv-form-snapshot-inner) input,
+:where(.pv-form-snapshot, .pv-form-snapshot-inner) textarea,
+:where(.pv-form-snapshot, .pv-form-snapshot-inner) select,
+:where(.pv-form-snapshot, .pv-form-snapshot-inner) button {
   font-family: inherit;
+  font-size: 1rem;
 }
 
-.pv-form-snapshot input:not([type="checkbox"]):not([type="radio"]),
-.pv-form-snapshot textarea,
-.pv-form-snapshot select {
+:where(.pv-form-snapshot, .pv-form-snapshot-inner) input,
+:where(.pv-form-snapshot, .pv-form-snapshot-inner) select,
+:where(.pv-form-snapshot, .pv-form-snapshot-inner) button {
+  pointer-events: none !important;
+  cursor: default !important;
+}
+
+:where(.pv-form-snapshot, .pv-form-snapshot-inner) textarea {
+  pointer-events: auto !important;
+  cursor: text !important;
+}
+
+:where(.pv-form-snapshot, .pv-form-snapshot-inner) input:not([type="checkbox"]):not([type="radio"]),
+:where(.pv-form-snapshot, .pv-form-snapshot-inner) textarea,
+:where(.pv-form-snapshot, .pv-form-snapshot-inner) select {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid var(--pv-border);
+  border: 1px solid var(--pv-form-border);
   border-radius: 6px;
   padding: 6px 8px;
-  background: var(--pv-panel);
+  background: var(--pv-form-panel);
+  color: var(--pv-form-text);
 }
 
-.pv-form-snapshot textarea {
-  min-height: 140px;
+:where(.pv-form-snapshot, .pv-form-snapshot-inner) textarea {
+  min-height: 80px;
+  overflow: auto !important;
   resize: vertical;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
-.pv-form-snapshot .kayros-filled {
+:where(.pv-form-snapshot, .pv-form-snapshot-inner) input.kayros-filled,
+:where(.pv-form-snapshot, .pv-form-snapshot-inner) textarea.kayros-filled,
+:where(.pv-form-snapshot, .pv-form-snapshot-inner) select.kayros-filled {
   background: rgba(15, 118, 110, 0.08);
-  border-color: var(--pv-accent);
+  border-color: var(--pv-form-accent);
+  font-weight: 500;
+}
+
+:where(.pv-form-snapshot, .pv-form-snapshot-inner) input[type="checkbox"].kayros-filled,
+:where(.pv-form-snapshot, .pv-form-snapshot-inner) input[type="radio"].kayros-filled {
+  accent-color: var(--pv-form-accent);
+  outline: 2px solid var(--pv-form-accent);
+  outline-offset: 2px;
+}
+
+:where(.pv-form-snapshot, .pv-form-snapshot-inner) [role="radio"].kayros-filled,
+:where(.pv-form-snapshot, .pv-form-snapshot-inner) [role="checkbox"].kayros-filled {
+  outline: 2px solid var(--pv-form-accent) !important;
+  outline-offset: 2px !important;
+  background: rgba(15, 118, 110, 0.05) !important;
+  box-shadow: 0 0 0 2px var(--pv-form-accent) !important;
+  border-radius: 4px !important;
+  display: inline-block !important;
+  max-width: fit-content !important;
+}
+
+:where(.pv-form-snapshot, .pv-form-snapshot-inner) label {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+:where(.pv-form-snapshot, .pv-form-snapshot-inner) button {
+  opacity: 0.5;
 }
 
 .pv-meta-grid {

@@ -6,11 +6,16 @@ export {
 } from './verify';
 
 export type {
-  AnyKayrosMetadata,
   EnvelopeVerifyDetails,
   EnvelopeVerifyOverrides,
   EnvelopeVerifyResult,
   EnvelopeVerifyWithInclusionOverrides,
+  KayrosData,
   KayrosMetadata,
-  KayrosMetadataV0,
+  KayrosProof,
+  ProofDataFormat,
+  ProvableEmailProofData,
+  ProvableFormProofData,
+  ProvableWebProofData,
+  ProvableWebProofSource,
 } from './types';
