@@ -2,13 +2,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHash } from 'node:crypto';
 import { sha3_256 as sha3_256Impl } from 'js-sha3';
 
-import { verify, verifyWithInclusion } from './verify';
+import { verify, verifyMerkleProof, verifyWithInclusion } from './verify';
 import { DEFAULT_USER_KEY, setUserKey } from './config';
 
 global.fetch = vi.fn();
 
 function toBase64(hex: string): string {
   return Buffer.from(hex, 'hex').toString('base64');
+}
+
+function makeLevel0(count: number): string[] {
+  return Array.from({ length: count }, (_, index) => index.toString(16).padStart(2, '0').repeat(32));
 }
 
 describe('verify', () => {
@@ -269,5 +273,110 @@ describe('verifyWithInclusion', () => {
     expect(result.valid).toBe(true);
     expect(result.details?.levelsHashType).toBe('sha256');
     expect(result.details?.proofPathMatch).toBe(true);
+  });
+});
+
+describe('verifyMerkleProof', () => {
+  it('marks the proof as pending when the L0 group has no L1 rollup yet', async () => {
+    const level0 = makeLevel0(255);
+
+    const result = await verifyMerkleProof({
+      proof: {
+        success: true,
+        data_type: 'proof_type',
+        hash_item: level0[5],
+        proof: level0,
+        root: '',
+        position: 5,
+        levels: 1,
+        level_counts: [255],
+        level_starts: [0],
+      },
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.pending).toBe(true);
+    expect(result.status).toBe('pending');
+    expect(result.message).toContain('no L1 rollup yet');
+    expect(result.positionPath).toEqual([5]);
+    expect(result.details).toContain('L0[0..254] partial group');
+  });
+
+  it('verifies a finalized local proof using sha3-256 by default', async () => {
+    const level0 = makeLevel0(256);
+    const level1 = sha3_256Impl(Buffer.from(level0.join(''), 'hex'));
+
+    const result = await verifyMerkleProof({
+      proof: {
+        success: true,
+        data_type: 'proof_type',
+        hash_item: level0[7],
+        proof: [...level0, level1],
+        root: level1,
+        position: 7,
+        levels: 2,
+        level_counts: [256, 1],
+        level_starts: [0, 0],
+      },
+    });
+
+    expect(result.valid).toBe(true);
+    expect(result.pending).toBe(false);
+    expect(result.status).toBe('valid');
+    expect(result.levelsHashType).toBe('sha3-256');
+    expect(result.computedRoot).toBe(level1);
+    expect(result.details[0]).toContain('SHA3-256');
+    expect(result.details[result.details.length - 1]).toContain('Root: ✓');
+  });
+
+  it('treats a proof with a verified L1 hash but no root as valid for existing levels', async () => {
+    const level0 = makeLevel0(256);
+    const level1 = sha3_256Impl(Buffer.from(level0.join(''), 'hex'));
+
+    const result = await verifyMerkleProof({
+      proof: {
+        success: true,
+        data_type: 'proof_type',
+        hash_item: level0[9],
+        proof: [...level0, level1],
+        root: '',
+        position: 9,
+        levels: 2,
+        level_counts: [256, 1],
+        level_starts: [0, 0],
+      },
+    });
+
+    expect(result.valid).toBe(true);
+    expect(result.pending).toBe(false);
+    expect(result.status).toBe('valid');
+    expect(result.message).toContain('Root pending');
+    expect(result.details[result.details.length - 1]).toContain('Root pending');
+  });
+
+  it('reports a rollup mismatch with details', async () => {
+    const level0 = makeLevel0(256);
+    const level1 = 'ff'.repeat(32);
+
+    const result = await verifyMerkleProof({
+      proof: {
+        success: true,
+        data_type: 'proof_type',
+        hash_item: level0[3],
+        proof: [...level0, level1],
+        root: level1,
+        position: 3,
+        levels: 2,
+        level_counts: [256, 1],
+        level_starts: [0, 0],
+      },
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.pending).toBe(false);
+    expect(result.status).toBe('invalid');
+    expect(result.message).toContain('Level 0 rollup mismatch');
+    expect(result.error).toContain('Computed');
+    expect(result.details[0]).toContain('✗');
   });
 });

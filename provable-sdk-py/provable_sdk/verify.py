@@ -17,7 +17,13 @@ from .lightnet import (
     verify_hash_batch,
     verify_hash_existence,
 )
-from .types import VerifyRequest, VerifyResult, VerifyWithInclusionRequest
+from .types import (
+    VerifyMerkleProofWithDetailsRequest,
+    VerifyMerkleProofWithDetailsResult,
+    VerifyRequest,
+    VerifyResult,
+    VerifyWithInclusionRequest,
+)
 
 UUID_GREGORIAN_EPOCH = 122192928000000000
 ZERO_HASH_32 = "00" * 32
@@ -249,6 +255,171 @@ def verify_with_inclusion(request: VerifyWithInclusionRequest) -> VerifyResult:
 
 
 verifyWithInclusion = verify_with_inclusion
+
+
+def verify_merkle_proof(request: VerifyMerkleProofWithDetailsRequest) -> VerifyMerkleProofWithDetailsResult:
+    levels_hash_type = _normalize_levels_hash_type(request.get("levels_hash_type"))
+    if isinstance(levels_hash_type, dict):
+        return _invalid_merkle_proof_result(levels_hash_type["error"])
+
+    try:
+        proof = _normalize_proof(request["proof"])
+    except Exception as exc:
+        return _invalid_merkle_proof_result(str(exc), levels_hash_type=levels_hash_type)
+
+    level_counts = _normalize_level_counts(
+        proof.get("level_counts", []),
+        proof.get("levels", 0),
+        len(proof.get("proof", [])),
+    )
+    if isinstance(level_counts, str):
+        return _invalid_merkle_proof_result(level_counts, levels_hash_type=levels_hash_type, proof=proof)
+
+    position_path = _build_position_path(int(proof["position"]), len(level_counts))
+    pending, max_level, max_level_position, max_level_hash = _proof_inclusion_meta(proof, level_counts)
+
+    if pending:
+        return {
+            "valid": False,
+            "pending": True,
+            "status": "pending",
+            "message": _pending_merkle_proof_message(proof, level_counts, position_path),
+            "details": _pending_merkle_proof_details(proof, level_counts),
+            "positionPath": position_path,
+            "levelsHashType": levels_hash_type,
+            "maxLevel": max_level,
+            "maxLevelPosition": max_level_position,
+            "maxLevelHash": max_level_hash,
+            "proof": proof,
+        }
+
+    details: List[str] = []
+    offset = 0
+    computed_root = ""
+    for level in range(len(level_counts) - 1):
+        count = level_counts[level]
+        level_hashes = proof["proof"][offset:offset + count]
+        level_start = proof["level_starts"][level] if level < len(proof["level_starts"]) else 0
+        next_level_hashes = _proof_level_hashes(proof["proof"], level_counts, level + 1)
+        next_level_start = proof["level_starts"][level + 1] if level + 1 < len(proof["level_starts"]) else 0
+        next_level_position = position_path[level + 1]
+        next_level_index = next_level_position - next_level_start
+        computed_rollup = _hash_hex_concat(level_hashes, levels_hash_type)
+        expected_hash = next_level_hashes[next_level_index] if 0 <= next_level_index < len(next_level_hashes) else None
+        label = _display_levels_hash_type(levels_hash_type)
+
+        if expected_hash is None:
+            details.append(
+                f"L{level}[{level_start}..{level_start + count - 1}] -> {label} -> "
+                f"L{level + 1}[pos {next_level_position}, idx {next_level_index}]: pending"
+            )
+            return {
+                "valid": True,
+                "pending": False,
+                "status": "valid",
+                "message": f"Proof verified for existing levels ({level + 1} levels). Higher-level rollup pending.",
+                "details": details + _higher_level_pending_details(level + 1, next_level_position, next_level_index),
+                "positionPath": position_path,
+                "levelsHashType": levels_hash_type,
+                "computedRoot": computed_rollup,
+                "maxLevel": max_level,
+                "maxLevelPosition": max_level_position,
+                "maxLevelHash": max_level_hash,
+                "proof": proof,
+            }
+
+        matches = computed_rollup == expected_hash
+        details.append(
+            f"L{level}[{level_start}..{level_start + count - 1}] -> {label} -> "
+            f"L{level + 1}[pos {next_level_position}, idx {next_level_index}]: {'✓' if matches else '✗'}"
+        )
+        if not matches:
+            return {
+                "valid": False,
+                "pending": False,
+                "status": "invalid",
+                "message": f"Level {level} rollup mismatch at level {level + 1} position {next_level_position}.",
+                "error": f"Computed {computed_rollup} but expected {expected_hash}",
+                "details": details,
+                "positionPath": position_path,
+                "levelsHashType": levels_hash_type,
+                "computedRoot": computed_rollup,
+                "maxLevel": max_level,
+                "maxLevelPosition": max_level_position,
+                "maxLevelHash": max_level_hash,
+                "proof": proof,
+            }
+
+        offset += count
+        computed_root = computed_rollup
+
+    final_level = len(level_counts) - 1
+    final_level_hashes = _proof_level_hashes(proof["proof"], level_counts, final_level)
+    if not final_level_hashes:
+        return _invalid_merkle_proof_result(
+            "Missing final proof level",
+            levels_hash_type=levels_hash_type,
+            proof=proof,
+            position_path=position_path,
+            max_level=max_level,
+            max_level_position=max_level_position,
+            max_level_hash=max_level_hash,
+        )
+
+    computed_root = final_level_hashes[0] if len(final_level_hashes) == 1 else _hash_hex_concat(final_level_hashes, levels_hash_type)
+    if not proof["root"]:
+        details.append("Root pending: final rollup not yet recorded in proof.root.")
+        return {
+            "valid": True,
+            "pending": False,
+            "status": "valid",
+            "message": f"Proof verified for existing levels ({len(level_counts)} levels). Root pending.",
+            "details": details,
+            "positionPath": position_path,
+            "levelsHashType": levels_hash_type,
+            "computedRoot": computed_root,
+            "maxLevel": max_level,
+            "maxLevelPosition": max_level_position,
+            "maxLevelHash": max_level_hash,
+            "proof": proof,
+        }
+
+    root_matches = computed_root == proof["root"]
+    details.append(f"Root: {'✓' if root_matches else '✗'} ({proof['root'][:16]}...)")
+    if not root_matches:
+        return {
+            "valid": False,
+            "pending": False,
+            "status": "invalid",
+            "message": "Root hash mismatch.",
+            "error": f"Expected {proof['root']} but computed {computed_root}",
+            "details": details,
+            "positionPath": position_path,
+            "levelsHashType": levels_hash_type,
+            "computedRoot": computed_root,
+            "maxLevel": max_level,
+            "maxLevelPosition": max_level_position,
+            "maxLevelHash": max_level_hash,
+            "proof": proof,
+        }
+
+    return {
+        "valid": True,
+        "pending": False,
+        "status": "valid",
+        "message": f"Proof verified! {len(level_counts)} levels, {len(proof['proof'])} hashes.",
+        "details": details,
+        "positionPath": position_path,
+        "levelsHashType": levels_hash_type,
+        "computedRoot": computed_root,
+        "maxLevel": max_level,
+        "maxLevelPosition": max_level_position,
+        "maxLevelHash": max_level_hash,
+        "proof": proof,
+    }
+
+
+verifyMerkleProof = verify_merkle_proof
 
 
 def _verify_record_core(request: VerifyRequest) -> Dict[str, Any]:
@@ -534,6 +705,95 @@ def _proof_inclusion_meta(proof: Dict[str, Any], level_counts: List[int]) -> Tup
         pending = index < 0 or index >= level_counts[1]
 
     return pending, max_level, max_level_position, max_level_hash
+
+
+def _build_position_path(position: int, levels: int) -> List[int]:
+    if levels <= 0:
+        return []
+    path = [position]
+    current_position = position
+    for _ in range(1, levels):
+        current_position //= 256
+        path.append(current_position)
+    return path
+
+
+def _pending_merkle_proof_message(proof: Dict[str, Any], level_counts: List[int], position_path: List[int]) -> str:
+    level0_count = level_counts[0] if level_counts else 0
+    if len(level_counts) < 2:
+        return f"Proof pending: L0 group has {level0_count} hashes and no L1 rollup yet."
+    level1_position = position_path[1]
+    level1_start = proof["level_starts"][1] if len(proof.get("level_starts", [])) > 1 else 0
+    level1_index = level1_position - level1_start
+    return f"Proof pending: L1[pos {level1_position}, idx {level1_index}] has not been generated yet."
+
+
+def _pending_merkle_proof_details(proof: Dict[str, Any], level_counts: List[int]) -> List[str]:
+    details: List[str] = []
+    level0_start = proof["level_starts"][0] if proof.get("level_starts") else 0
+    level0_count = level_counts[0] if level_counts else 0
+    if level0_count > 0:
+        details.append(f"L0[{level0_start}..{level0_start + level0_count - 1}] partial group")
+
+    missing = [max(0, 256 - count) for count in level_counts]
+    missing_l0 = missing[0] if missing else 0
+    if missing_l0 > 0:
+        details.append(f"Need {missing_l0:,} more L0 records to complete current L0 group.")
+
+    last = len(level_counts) - 1
+    missing_last = missing[last] if missing else 0
+    if last > 0 and missing_last > 0:
+        needed = missing_l0
+        for level in range(1, last + 1):
+            miss = missing[level]
+            if miss > 0:
+                needed += max(0, miss - 1) * (256 ** level)
+        if needed > 0:
+            details.append(f"~{needed:,} more L0 records to complete L{last} group (to get next-level rollup).")
+    return details
+
+
+def _higher_level_pending_details(level: int, position: int, index: int) -> List[str]:
+    return [f"Higher-level rollup pending at L{level}[pos {position}, idx {index}]."]
+
+
+def _invalid_merkle_proof_result(
+    message: str,
+    *,
+    levels_hash_type: str = DEFAULT_LEVELS_HASH_TYPE,
+    proof: Optional[Dict[str, Any]] = None,
+    position_path: Optional[List[int]] = None,
+    max_level: int = -1,
+    max_level_position: int = -1,
+    max_level_hash: str = "",
+    computed_root: Optional[str] = None,
+) -> VerifyMerkleProofWithDetailsResult:
+    result: VerifyMerkleProofWithDetailsResult = {
+        "valid": False,
+        "pending": False,
+        "status": "invalid",
+        "message": message,
+        "error": message,
+        "details": [],
+        "positionPath": position_path or [],
+        "levelsHashType": levels_hash_type,
+        "maxLevel": max_level,
+        "maxLevelPosition": max_level_position,
+        "maxLevelHash": max_level_hash,
+    }
+    if proof is not None:
+        result["proof"] = proof
+    if computed_root is not None:
+        result["computedRoot"] = computed_root
+    return result
+
+
+def _display_levels_hash_type(levels_hash_type: str) -> str:
+    if levels_hash_type == "sha256":
+        return "SHA-256"
+    if levels_hash_type == "sha3-256":
+        return "SHA3-256"
+    return levels_hash_type
 
 
 def _proof_level_hashes(all_hashes: List[str], level_counts: List[int], level: int) -> List[str]:

@@ -6,7 +6,7 @@ import hashlib
 import importlib
 from unittest.mock import patch
 
-from provable_sdk.verify import verify, verify_with_inclusion
+from provable_sdk.verify import verify, verify_merkle_proof, verify_with_inclusion
 
 verify_module = importlib.import_module("provable_sdk.verify")
 
@@ -18,6 +18,10 @@ def to_base64(hex_value: str) -> str:
 def b64(hex_value: str) -> str:
     import base64
     return base64.b64encode(bytes.fromhex(hex_value)).decode("ascii")
+
+
+def make_level0(count: int) -> list[str]:
+    return [f"{index:02x}" * 32 for index in range(count)]
 
 
 class TestVerify:
@@ -236,3 +240,110 @@ class TestVerify:
             assert result["valid"] is True
             assert result["details"]["levelsHashType"] == "sha256"
             assert result["details"]["proofPathMatch"] is True
+
+    def test_verify_merkle_proof_marks_missing_l1_as_pending(self):
+        level0 = make_level0(255)
+
+        result = verify_merkle_proof(
+            {
+                "proof": {
+                    "success": True,
+                    "data_type": "proof_type",
+                    "hash_item": level0[5],
+                    "proof": level0,
+                    "root": "",
+                    "position": 5,
+                    "levels": 1,
+                    "level_counts": [255],
+                    "level_starts": [0],
+                }
+            }
+        )
+
+        assert result["valid"] is False
+        assert result["pending"] is True
+        assert result["status"] == "pending"
+        assert "no L1 rollup yet" in result["message"]
+        assert result["positionPath"] == [5]
+        assert "L0[0..254] partial group" in result["details"]
+
+    def test_verify_merkle_proof_verifies_finalized_proof(self):
+        level0 = make_level0(256)
+        level1 = hashlib.sha3_256(bytes.fromhex("".join(level0))).hexdigest()
+
+        result = verify_merkle_proof(
+            {
+                "proof": {
+                    "success": True,
+                    "data_type": "proof_type",
+                    "hash_item": level0[7],
+                    "proof": [*level0, level1],
+                    "root": level1,
+                    "position": 7,
+                    "levels": 2,
+                    "level_counts": [256, 1],
+                    "level_starts": [0, 0],
+                }
+            }
+        )
+
+        assert result["valid"] is True
+        assert result["pending"] is False
+        assert result["status"] == "valid"
+        assert result["levelsHashType"] == "sha3-256"
+        assert result["computedRoot"] == level1
+        assert "SHA3-256" in result["details"][0]
+        assert "Root: ✓" in result["details"][-1]
+
+    def test_verify_merkle_proof_treats_empty_root_as_valid_existing_levels(self):
+        level0 = make_level0(256)
+        level1 = hashlib.sha3_256(bytes.fromhex("".join(level0))).hexdigest()
+
+        result = verify_merkle_proof(
+            {
+                "proof": {
+                    "success": True,
+                    "data_type": "proof_type",
+                    "hash_item": level0[9],
+                    "proof": [*level0, level1],
+                    "root": "",
+                    "position": 9,
+                    "levels": 2,
+                    "level_counts": [256, 1],
+                    "level_starts": [0, 0],
+                }
+            }
+        )
+
+        assert result["valid"] is True
+        assert result["pending"] is False
+        assert result["status"] == "valid"
+        assert "Root pending" in result["message"]
+        assert "Root pending" in result["details"][-1]
+
+    def test_verify_merkle_proof_reports_rollup_mismatch(self):
+        level0 = make_level0(256)
+        level1 = "ff" * 32
+
+        result = verify_merkle_proof(
+            {
+                "proof": {
+                    "success": True,
+                    "data_type": "proof_type",
+                    "hash_item": level0[3],
+                    "proof": [*level0, level1],
+                    "root": level1,
+                    "position": 3,
+                    "levels": 2,
+                    "level_counts": [256, 1],
+                    "level_starts": [0, 0],
+                }
+            }
+        )
+
+        assert result["valid"] is False
+        assert result["pending"] is False
+        assert result["status"] == "invalid"
+        assert "Level 0 rollup mismatch" in result["message"]
+        assert "Computed" in result["error"]
+        assert "✗" in result["details"][0]

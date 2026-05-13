@@ -330,3 +330,128 @@ func mustDecodeHex(value string) []byte {
 func intPtr(value int) *int {
 	return &value
 }
+
+func makeLevel0(count int) []string {
+	hashes := make([]string, count)
+	for i := 0; i < count; i++ {
+		hashes[i] = strings.Repeat(hex.EncodeToString([]byte{byte(i)}), 32)
+	}
+	return hashes
+}
+
+func TestVerifyMerkleProofMarksMissingL1AsPending(t *testing.T) {
+	level0 := makeLevel0(255)
+
+	result := VerifyMerkleProof(VerifyMerkleProofWithDetailsRequest{
+		Proof: &MerkleProofResponse{
+			Success:     true,
+			DataType:    "proof_type",
+			HashItem:    level0[5],
+			Proof:       level0,
+			Root:        "",
+			Position:    5,
+			Levels:      1,
+			LevelCounts: []int{255},
+			LevelStarts: []int64{0},
+		},
+	})
+
+	if result == nil || result.Valid || !result.Pending || result.Status != "pending" {
+		t.Fatalf("VerifyMerkleProof() = %#v, want pending result", result)
+	}
+	if !strings.Contains(result.Message, "no L1 rollup yet") {
+		t.Fatalf("message = %q", result.Message)
+	}
+	if len(result.PositionPath) != 1 || result.PositionPath[0] != 5 {
+		t.Fatalf("position path = %#v", result.PositionPath)
+	}
+	if len(result.Details) == 0 || result.Details[0] != "L0[0..254] partial group" {
+		t.Fatalf("details = %#v", result.Details)
+	}
+}
+
+func TestVerifyMerkleProofVerifiesFinalizedProof(t *testing.T) {
+	level0 := makeLevel0(256)
+	rootSum := sha3.Sum256(mustDecodeHex(strings.Join(level0, "")))
+	level1 := hex.EncodeToString(rootSum[:])
+
+	result := VerifyMerkleProof(VerifyMerkleProofWithDetailsRequest{
+		Proof: &MerkleProofResponse{
+			Success:     true,
+			DataType:    "proof_type",
+			HashItem:    level0[7],
+			Proof:       append(append([]string{}, level0...), level1),
+			Root:        level1,
+			Position:    7,
+			Levels:      2,
+			LevelCounts: []int{256, 1},
+			LevelStarts: []int64{0, 0},
+		},
+	})
+
+	if result == nil || !result.Valid || result.Pending || result.Status != "valid" {
+		t.Fatalf("VerifyMerkleProof() = %#v, want valid result", result)
+	}
+	if result.LevelsHashType != "sha3-256" || result.ComputedRoot != level1 {
+		t.Fatalf("levels hash type/root = %q/%q", result.LevelsHashType, result.ComputedRoot)
+	}
+	if len(result.Details) == 0 || !strings.Contains(result.Details[0], "SHA3-256") || !strings.Contains(result.Details[len(result.Details)-1], "Root: ✓") {
+		t.Fatalf("details = %#v", result.Details)
+	}
+}
+
+func TestVerifyMerkleProofTreatsEmptyRootAsValidExistingLevels(t *testing.T) {
+	level0 := makeLevel0(256)
+	rootSum := sha3.Sum256(mustDecodeHex(strings.Join(level0, "")))
+	level1 := hex.EncodeToString(rootSum[:])
+
+	result := VerifyMerkleProof(VerifyMerkleProofWithDetailsRequest{
+		Proof: &MerkleProofResponse{
+			Success:     true,
+			DataType:    "proof_type",
+			HashItem:    level0[9],
+			Proof:       append(append([]string{}, level0...), level1),
+			Root:        "",
+			Position:    9,
+			Levels:      2,
+			LevelCounts: []int{256, 1},
+			LevelStarts: []int64{0, 0},
+		},
+	})
+
+	if result == nil || !result.Valid || result.Pending || result.Status != "valid" {
+		t.Fatalf("VerifyMerkleProof() = %#v, want valid result", result)
+	}
+	if !strings.Contains(result.Message, "Root pending") || len(result.Details) == 0 || !strings.Contains(result.Details[len(result.Details)-1], "Root pending") {
+		t.Fatalf("message/details = %q / %#v", result.Message, result.Details)
+	}
+}
+
+func TestVerifyMerkleProofReportsRollupMismatch(t *testing.T) {
+	level0 := makeLevel0(256)
+	level1 := strings.Repeat("ff", 32)
+
+	result := VerifyMerkleProof(VerifyMerkleProofWithDetailsRequest{
+		Proof: &MerkleProofResponse{
+			Success:     true,
+			DataType:    "proof_type",
+			HashItem:    level0[3],
+			Proof:       append(append([]string{}, level0...), level1),
+			Root:        level1,
+			Position:    3,
+			Levels:      2,
+			LevelCounts: []int{256, 1},
+			LevelStarts: []int64{0, 0},
+		},
+	})
+
+	if result == nil || result.Valid || result.Pending || result.Status != "invalid" {
+		t.Fatalf("VerifyMerkleProof() = %#v, want invalid result", result)
+	}
+	if !strings.Contains(result.Message, "Level 0 rollup mismatch") || !strings.Contains(result.Error, "Computed") {
+		t.Fatalf("message/error = %q / %q", result.Message, result.Error)
+	}
+	if len(result.Details) == 0 || !strings.Contains(result.Details[0], "✗") {
+		t.Fatalf("details = %#v", result.Details)
+	}
+}

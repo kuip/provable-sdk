@@ -12,7 +12,7 @@ export { prove_single_hash, get_record_by_hash } from './api';
 export { prove_data, prove_data_str } from './prove';
 
 // Export verify function
-export { verify, verifyWithInclusion } from './verify';
+export { verify, verifyWithInclusion, verifyMerkleProof } from './verify';
 export { normalizeMerkleProof, getMerkleProofLevels, checkMerkleProofCompatibility } from './merkleProof';
 
 // Export Lightnet API functions
@@ -42,6 +42,8 @@ export type {
   VerifyResult,
   VerifyRequest,
   VerifyWithInclusionRequest,
+  VerifyMerkleProofWithDetailsRequest,
+  VerifyMerkleProofWithDetailsResult,
   VerifyLevelCheck,
   NormalizedKayrosRecord,
   NormalizedMerkleProof,

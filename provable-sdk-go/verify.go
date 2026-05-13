@@ -248,6 +248,221 @@ func VerifyWithInclusion(request VerifyWithInclusionRequest) *VerifyResult {
 	}
 }
 
+// VerifyMerkleProof validates a provided merkle proof locally and returns UI-oriented details.
+func VerifyMerkleProof(request VerifyMerkleProofWithDetailsRequest) *VerifyMerkleProofWithDetailsResult {
+	levelsHashType, err := normalizeLevelsHashType(request.LevelsHashType)
+	if err != nil {
+		return invalidMerkleProofResult(err.Error(), nil)
+	}
+
+	proof, err := NormalizeMerkleProof(request.Proof)
+	if err != nil {
+		return invalidMerkleProofResult(err.Error(), &verifyMerkleProofOptions{
+			LevelsHashType: levelsHashType,
+		})
+	}
+
+	levelCounts, err := normalizeLevelCounts(proof.LevelCounts, proof.Levels, len(proof.Proof))
+	if err != nil {
+		return invalidMerkleProofResult(err.Error(), &verifyMerkleProofOptions{
+			LevelsHashType: levelsHashType,
+			Proof:          proof,
+		})
+	}
+
+	positionPath := buildPositionPath(proof.Position, len(levelCounts))
+	pending, maxLevel, maxLevelPosition, maxLevelHash := proofInclusionMeta(proof, levelCounts)
+	if pending {
+		return &VerifyMerkleProofWithDetailsResult{
+			Valid:            false,
+			Pending:          true,
+			Status:           "pending",
+			Message:          pendingMerkleProofMessage(proof, levelCounts, positionPath),
+			Details:          pendingMerkleProofDetails(proof, levelCounts),
+			PositionPath:     positionPath,
+			LevelsHashType:   levelsHashType,
+			MaxLevel:         maxLevel,
+			MaxLevelPosition: maxLevelPosition,
+			MaxLevelHash:     maxLevelHash,
+			Proof:            proof,
+		}
+	}
+
+	details := make([]string, 0, len(levelCounts))
+	offset := 0
+	computedRoot := ""
+	for level := 0; level < len(levelCounts)-1; level++ {
+		count := levelCounts[level]
+		levelHashes := proof.Proof[offset : offset+count]
+		levelStart := int64(0)
+		if level < len(proof.LevelStarts) {
+			levelStart = proof.LevelStarts[level]
+		}
+		nextLevelHashes := proofLevelHashes(proof.Proof, levelCounts, level+1)
+		nextLevelStart := int64(0)
+		if level+1 < len(proof.LevelStarts) {
+			nextLevelStart = proof.LevelStarts[level+1]
+		}
+		nextLevelPosition := positionPath[level+1]
+		nextLevelIndex := int(nextLevelPosition - nextLevelStart)
+		computedRollup, err := hashHexConcat(levelHashes, levelsHashType)
+		if err != nil {
+			return invalidMerkleProofResult(err.Error(), &verifyMerkleProofOptions{
+				LevelsHashType:   levelsHashType,
+				Proof:            proof,
+				PositionPath:     positionPath,
+				MaxLevel:         maxLevel,
+				MaxLevelPosition: maxLevelPosition,
+				MaxLevelHash:     maxLevelHash,
+			})
+		}
+
+		label := displayLevelsHashType(levelsHashType)
+		if nextLevelIndex < 0 || nextLevelIndex >= len(nextLevelHashes) {
+			details = append(details, fmt.Sprintf(
+				"L%d[%d..%d] -> %s -> L%d[pos %d, idx %d]: pending",
+				level,
+				levelStart,
+				levelStart+int64(count)-1,
+				label,
+				level+1,
+				nextLevelPosition,
+				nextLevelIndex,
+			))
+			return &VerifyMerkleProofWithDetailsResult{
+				Valid:            true,
+				Pending:          false,
+				Status:           "valid",
+				Message:          fmt.Sprintf("Proof verified for existing levels (%d levels). Higher-level rollup pending.", level+1),
+				Details:          append(details, higherLevelPendingDetails(level+1, nextLevelPosition, nextLevelIndex)...),
+				PositionPath:     positionPath,
+				LevelsHashType:   levelsHashType,
+				ComputedRoot:     computedRollup,
+				MaxLevel:         maxLevel,
+				MaxLevelPosition: maxLevelPosition,
+				MaxLevelHash:     maxLevelHash,
+				Proof:            proof,
+			}
+		}
+
+		expectedHash := nextLevelHashes[nextLevelIndex]
+		matches := strings.EqualFold(computedRollup, expectedHash)
+		details = append(details, fmt.Sprintf(
+			"L%d[%d..%d] -> %s -> L%d[pos %d, idx %d]: %s",
+			level,
+			levelStart,
+			levelStart+int64(count)-1,
+			label,
+			level+1,
+			nextLevelPosition,
+			nextLevelIndex,
+			map[bool]string{true: "✓", false: "✗"}[matches],
+		))
+		if !matches {
+			return &VerifyMerkleProofWithDetailsResult{
+				Valid:            false,
+				Pending:          false,
+				Status:           "invalid",
+				Message:          fmt.Sprintf("Level %d rollup mismatch at level %d position %d.", level, level+1, nextLevelPosition),
+				Error:            fmt.Sprintf("Computed %s but expected %s", computedRollup, expectedHash),
+				Details:          details,
+				PositionPath:     positionPath,
+				LevelsHashType:   levelsHashType,
+				ComputedRoot:     computedRollup,
+				MaxLevel:         maxLevel,
+				MaxLevelPosition: maxLevelPosition,
+				MaxLevelHash:     maxLevelHash,
+				Proof:            proof,
+			}
+		}
+
+		offset += count
+		computedRoot = computedRollup
+	}
+
+	finalLevel := len(levelCounts) - 1
+	finalLevelHashes := proofLevelHashes(proof.Proof, levelCounts, finalLevel)
+	if len(finalLevelHashes) == 0 {
+		return invalidMerkleProofResult("Missing final proof level", &verifyMerkleProofOptions{
+			LevelsHashType:   levelsHashType,
+			Proof:            proof,
+			PositionPath:     positionPath,
+			MaxLevel:         maxLevel,
+			MaxLevelPosition: maxLevelPosition,
+			MaxLevelHash:     maxLevelHash,
+		})
+	}
+
+	if len(finalLevelHashes) == 1 {
+		computedRoot = finalLevelHashes[0]
+	} else {
+		computedRoot, err = hashHexConcat(finalLevelHashes, levelsHashType)
+		if err != nil {
+			return invalidMerkleProofResult(err.Error(), &verifyMerkleProofOptions{
+				LevelsHashType:   levelsHashType,
+				Proof:            proof,
+				PositionPath:     positionPath,
+				MaxLevel:         maxLevel,
+				MaxLevelPosition: maxLevelPosition,
+				MaxLevelHash:     maxLevelHash,
+			})
+		}
+	}
+
+	if proof.Root == "" {
+		details = append(details, "Root pending: final rollup not yet recorded in proof.root.")
+		return &VerifyMerkleProofWithDetailsResult{
+			Valid:            true,
+			Pending:          false,
+			Status:           "valid",
+			Message:          fmt.Sprintf("Proof verified for existing levels (%d levels). Root pending.", len(levelCounts)),
+			Details:          details,
+			PositionPath:     positionPath,
+			LevelsHashType:   levelsHashType,
+			ComputedRoot:     computedRoot,
+			MaxLevel:         maxLevel,
+			MaxLevelPosition: maxLevelPosition,
+			MaxLevelHash:     maxLevelHash,
+			Proof:            proof,
+		}
+	}
+
+	rootMatches := strings.EqualFold(computedRoot, proof.Root)
+	details = append(details, fmt.Sprintf("Root: %s (%s...)", map[bool]string{true: "✓", false: "✗"}[rootMatches], proof.Root[:16]))
+	if !rootMatches {
+		return &VerifyMerkleProofWithDetailsResult{
+			Valid:            false,
+			Pending:          false,
+			Status:           "invalid",
+			Message:          "Root hash mismatch.",
+			Error:            fmt.Sprintf("Expected %s but computed %s", proof.Root, computedRoot),
+			Details:          details,
+			PositionPath:     positionPath,
+			LevelsHashType:   levelsHashType,
+			ComputedRoot:     computedRoot,
+			MaxLevel:         maxLevel,
+			MaxLevelPosition: maxLevelPosition,
+			MaxLevelHash:     maxLevelHash,
+			Proof:            proof,
+		}
+	}
+
+	return &VerifyMerkleProofWithDetailsResult{
+		Valid:            true,
+		Pending:          false,
+		Status:           "valid",
+		Message:          fmt.Sprintf("Proof verified! %d levels, %d hashes.", len(levelCounts), len(proof.Proof)),
+		Details:          details,
+		PositionPath:     positionPath,
+		LevelsHashType:   levelsHashType,
+		ComputedRoot:     computedRoot,
+		MaxLevel:         maxLevel,
+		MaxLevelPosition: maxLevelPosition,
+		MaxLevelHash:     maxLevelHash,
+		Proof:            proof,
+	}
+}
+
 func verifyRecordCore(request VerifyRequest) (*VerifyResult, *verifyCoreState) {
 	details := &VerifyResultDetails{
 		LookupMode:  "data_item",
@@ -697,6 +912,143 @@ func proofInclusionMeta(proof *NormalizedMerkleProof, levelCounts []int) (bool, 
 	}
 
 	return pending, maxLevel, maxLevelPosition, maxLevelHash
+}
+
+func buildPositionPath(position int64, levels int) []int64 {
+	if levels <= 0 {
+		return nil
+	}
+	path := make([]int64, 0, levels)
+	currentPosition := position
+	path = append(path, currentPosition)
+	for i := 1; i < levels; i++ {
+		currentPosition = currentPosition / 256
+		path = append(path, currentPosition)
+	}
+	return path
+}
+
+func pendingMerkleProofMessage(proof *NormalizedMerkleProof, levelCounts []int, positionPath []int64) string {
+	level0Count := 0
+	if len(levelCounts) > 0 {
+		level0Count = levelCounts[0]
+	}
+	if len(levelCounts) < 2 {
+		return fmt.Sprintf("Proof pending: L0 group has %d hashes and no L1 rollup yet.", level0Count)
+	}
+	level1Position := positionPath[1]
+	level1Start := int64(0)
+	if len(proof.LevelStarts) > 1 {
+		level1Start = proof.LevelStarts[1]
+	}
+	level1Index := int(level1Position - level1Start)
+	return fmt.Sprintf("Proof pending: L1[pos %d, idx %d] has not been generated yet.", level1Position, level1Index)
+}
+
+func pendingMerkleProofDetails(proof *NormalizedMerkleProof, levelCounts []int) []string {
+	details := make([]string, 0, len(levelCounts)+2)
+	level0Start := int64(0)
+	if len(proof.LevelStarts) > 0 {
+		level0Start = proof.LevelStarts[0]
+	}
+	level0Count := 0
+	if len(levelCounts) > 0 {
+		level0Count = levelCounts[0]
+	}
+	if level0Count > 0 {
+		details = append(details, fmt.Sprintf("L0[%d..%d] partial group", level0Start, level0Start+int64(level0Count)-1))
+	}
+
+	missing := make([]int, len(levelCounts))
+	for i, count := range levelCounts {
+		if count < 256 {
+			missing[i] = 256 - count
+		}
+	}
+	missingL0 := 0
+	if len(missing) > 0 {
+		missingL0 = missing[0]
+	}
+	if missingL0 > 0 {
+		details = append(details, fmt.Sprintf("Need %d more L0 records to complete current L0 group.", missingL0))
+	}
+
+	last := len(levelCounts) - 1
+	if last > 0 && missing[last] > 0 {
+		needed := missingL0
+		multiplier := 256
+		for level := 1; level <= last; level++ {
+			miss := missing[level]
+			if miss > 0 {
+				needed += maxInt(0, miss-1) * multiplier
+			}
+			multiplier *= 256
+		}
+		if needed > 0 {
+			details = append(details, fmt.Sprintf("~%d more L0 records to complete L%d group (to get next-level rollup).", needed, last))
+		}
+	}
+
+	return details
+}
+
+func higherLevelPendingDetails(level int, position int64, index int) []string {
+	return []string{fmt.Sprintf("Higher-level rollup pending at L%d[pos %d, idx %d].", level, position, index)}
+}
+
+type verifyMerkleProofOptions struct {
+	LevelsHashType   string
+	Proof            *NormalizedMerkleProof
+	PositionPath     []int64
+	MaxLevel         int
+	MaxLevelPosition int64
+	MaxLevelHash     string
+	ComputedRoot     string
+}
+
+func invalidMerkleProofResult(message string, options *verifyMerkleProofOptions) *VerifyMerkleProofWithDetailsResult {
+	result := &VerifyMerkleProofWithDetailsResult{
+		Valid:            false,
+		Pending:          false,
+		Status:           "invalid",
+		Message:          message,
+		Error:            message,
+		Details:          []string{},
+		LevelsHashType:   defaultLevelsHashType,
+		MaxLevel:         -1,
+		MaxLevelPosition: -1,
+		MaxLevelHash:     "",
+	}
+	if options != nil {
+		if options.LevelsHashType != "" {
+			result.LevelsHashType = options.LevelsHashType
+		}
+		result.Proof = options.Proof
+		result.PositionPath = options.PositionPath
+		result.MaxLevel = options.MaxLevel
+		result.MaxLevelPosition = options.MaxLevelPosition
+		result.MaxLevelHash = options.MaxLevelHash
+		result.ComputedRoot = options.ComputedRoot
+	}
+	return result
+}
+
+func displayLevelsHashType(levelsHashType string) string {
+	switch levelsHashType {
+	case "sha256":
+		return "SHA-256"
+	case "sha3-256":
+		return "SHA3-256"
+	default:
+		return levelsHashType
+	}
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 func proofLevelHashes(all []string, levelCounts []int, level int) []string {

@@ -7,7 +7,7 @@ from importlib.metadata import PackageNotFoundError, version
 from .hash import hash, keccak256, hash_str, keccak256_str, sha256, sha256_str
 from .api import prove_single_hash, get_record_by_hash
 from .prove import prove_data, prove_data_str
-from .verify import verify, verify_with_inclusion, verifyWithInclusion
+from .verify import verify, verify_merkle_proof, verifyMerkleProof, verify_with_inclusion, verifyWithInclusion
 from .merkle_proof import (
     normalize_merkle_proof,
     get_merkle_proof_levels,
@@ -39,6 +39,8 @@ from .types import (
     GetRecordByDataItemResponse,
     VerifyResult,
     VerifyRequest,
+    VerifyMerkleProofWithDetailsRequest,
+    VerifyMerkleProofWithDetailsResult,
     VerifyWithInclusionRequest,
     VerifyLevelCheck,
     NormalizedKayrosRecord,
@@ -105,6 +107,8 @@ __all__ = [
     "prove_data",
     "prove_data_str",
     "verify",
+    "verify_merkle_proof",
+    "verifyMerkleProof",
     "verify_with_inclusion",
     "verifyWithInclusion",
     "normalize_merkle_proof",
@@ -135,6 +139,8 @@ __all__ = [
     "GetRecordByDataItemResponse",
     "VerifyResult",
     "VerifyRequest",
+    "VerifyMerkleProofWithDetailsRequest",
+    "VerifyMerkleProofWithDetailsResult",
     "VerifyWithInclusionRequest",
     "VerifyLevelCheck",
     "NormalizedKayrosRecord",

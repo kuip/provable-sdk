@@ -44,6 +44,27 @@ type VerifyWithInclusionRequest struct {
 	LevelChecks          []VerifyLevelCheck `json:"level_checks,omitempty"`
 }
 
+type VerifyMerkleProofWithDetailsRequest struct {
+	Proof          any    `json:"proof"`
+	LevelsHashType string `json:"levels_hash_type,omitempty"`
+}
+
+type VerifyMerkleProofWithDetailsResult struct {
+	Valid            bool                   `json:"valid"`
+	Pending          bool                   `json:"pending"`
+	Status           string                 `json:"status"`
+	Message          string                 `json:"message"`
+	Error            string                 `json:"error,omitempty"`
+	Details          []string               `json:"details"`
+	PositionPath     []int64                `json:"positionPath"`
+	LevelsHashType   string                 `json:"levelsHashType"`
+	ComputedRoot     string                 `json:"computedRoot,omitempty"`
+	MaxLevel         int                    `json:"maxLevel"`
+	MaxLevelPosition int64                  `json:"maxLevelPosition"`
+	MaxLevelHash     string                 `json:"maxLevelHash"`
+	Proof            *NormalizedMerkleProof `json:"proof,omitempty"`
+}
+
 type NormalizedKayrosRecord struct {
 	DataType    string             `json:"data_type"`
 	DataTypeHex string             `json:"data_type_hex"`
@@ -90,13 +111,13 @@ type MerkleProofCompatibilityMismatch struct {
 }
 
 type MerkleProofCompatibilityResult struct {
-	Compatible    bool                              `json:"compatible"`
-	CheckedEntries int                              `json:"checkedEntries"`
-	Previous      *NormalizedMerkleProof            `json:"previous"`
-	Next          *NormalizedMerkleProof            `json:"next"`
-	PreviousLevels []MerkleProofLevel               `json:"previousLevels"`
-	NextLevels     []MerkleProofLevel               `json:"nextLevels"`
-	Mismatches    []MerkleProofCompatibilityMismatch `json:"mismatches"`
+	Compatible     bool                               `json:"compatible"`
+	CheckedEntries int                                `json:"checkedEntries"`
+	Previous       *NormalizedMerkleProof             `json:"previous"`
+	Next           *NormalizedMerkleProof             `json:"next"`
+	PreviousLevels []MerkleProofLevel                 `json:"previousLevels"`
+	NextLevels     []MerkleProofLevel                 `json:"nextLevels"`
+	Mismatches     []MerkleProofCompatibilityMismatch `json:"mismatches"`
 }
 
 type LevelCheckResult struct {

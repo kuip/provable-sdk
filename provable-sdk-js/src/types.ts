@@ -122,6 +122,28 @@ export interface VerifyWithInclusionRequest extends VerifyRequest {
   levelChecks?: VerifyLevelCheck[];
 }
 
+export interface VerifyMerkleProofWithDetailsRequest {
+  proof: MerkleProofInput;
+  levels_hash_type?: string;
+  levelsHashType?: string;
+}
+
+export interface VerifyMerkleProofWithDetailsResult {
+  valid: boolean;
+  pending: boolean;
+  status: 'valid' | 'pending' | 'invalid';
+  message: string;
+  error?: string;
+  details: string[];
+  positionPath: number[];
+  levelsHashType: string;
+  computedRoot?: string;
+  maxLevel: number;
+  maxLevelPosition: number;
+  maxLevelHash: string;
+  proof?: NormalizedMerkleProof;
+}
+
 export interface NormalizedKayrosRecord {
   data_type: string;
   data_type_hex: string;

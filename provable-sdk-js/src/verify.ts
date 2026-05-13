@@ -18,9 +18,10 @@ import type {
   BatchExistenceCheckResult,
   ComputeHashRequest,
   LevelCheckResult,
-  MerkleProofResponse,
   NormalizedKayrosRecord,
   NormalizedMerkleProof,
+  VerifyMerkleProofWithDetailsRequest,
+  VerifyMerkleProofWithDetailsResult,
   VerifyRequest,
   VerifyResult,
   VerifyWithInclusionRequest,
@@ -266,6 +267,185 @@ export async function verifyWithInclusion(input: VerifyWithInclusionRequest): Pr
   return {
     valid: true,
     details,
+  };
+}
+
+export async function verifyMerkleProof(input: VerifyMerkleProofWithDetailsRequest): Promise<VerifyMerkleProofWithDetailsResult> {
+  const levelsHashType = normalizeLevelsHashType(input.levels_hash_type ?? input.levelsHashType);
+  if (typeof levelsHashType !== 'string') {
+    return invalidMerkleProofResult(levelsHashType.error);
+  }
+
+  let proof: NormalizedMerkleProof;
+  try {
+    proof = normalizeMerkleProof(input.proof);
+  } catch (error) {
+    return invalidMerkleProofResult(errorMessage(error), {
+      levelsHashType,
+    });
+  }
+
+  const levelCounts = normalizeLevelCounts(proof.level_counts, proof.levels, proof.proof.length);
+  if (typeof levelCounts === 'string') {
+    return invalidMerkleProofResult(levelCounts, {
+      levelsHashType,
+      proof,
+    });
+  }
+
+  const positionPath = buildPositionPath(proof.position, levelCounts.length);
+  const inclusionMeta = proofInclusionMeta(proof, levelCounts);
+
+  if (inclusionMeta.pending) {
+    return {
+      valid: false,
+      pending: true,
+      status: 'pending',
+      message: pendingMerkleProofMessage(proof, levelCounts, positionPath),
+      details: pendingMerkleProofDetails(proof, levelCounts),
+      positionPath,
+      levelsHashType,
+      maxLevel: inclusionMeta.maxLevel,
+      maxLevelPosition: inclusionMeta.maxLevelPosition,
+      maxLevelHash: inclusionMeta.maxLevelHash,
+      proof,
+    };
+  }
+
+  const details: string[] = [];
+  let offset = 0;
+  let computedRoot = '';
+
+  for (let level = 0; level < levelCounts.length - 1; level += 1) {
+    const count = levelCounts[level];
+    const levelHashes = proof.proof.slice(offset, offset + count);
+    const levelStart = proof.level_starts[level] ?? 0;
+    const nextLevelHashes = proofLevelHashes(proof.proof, levelCounts, level + 1);
+    const nextLevelStart = proof.level_starts[level + 1] ?? 0;
+    const nextLevelPosition = positionPath[level + 1];
+    const nextLevelIndex = nextLevelPosition - nextLevelStart;
+    const computedRollup = await hashHexConcat(levelHashes, levelsHashType);
+    const expectedHash = nextLevelHashes[nextLevelIndex];
+    const label = `${displayLevelsHashType(levelsHashType)}`;
+
+    if (expectedHash === undefined) {
+      details.push(
+        `L${level}[${levelStart}..${levelStart + count - 1}] -> ${label} -> L${level + 1}[pos ${nextLevelPosition}, idx ${nextLevelIndex}]: pending`,
+      );
+      return {
+        valid: true,
+        pending: false,
+        status: 'valid',
+        message: `Proof verified for existing levels (${level + 1} levels). Higher-level rollup pending.`,
+        details: [...details, ...higherLevelPendingDetails(level + 1, nextLevelPosition, nextLevelIndex)],
+        positionPath,
+        levelsHashType,
+        computedRoot: computedRollup,
+        maxLevel: inclusionMeta.maxLevel,
+        maxLevelPosition: inclusionMeta.maxLevelPosition,
+        maxLevelHash: inclusionMeta.maxLevelHash,
+        proof,
+      };
+    }
+
+    const matches = computedRollup === expectedHash;
+    details.push(
+      `L${level}[${levelStart}..${levelStart + count - 1}] -> ${label} -> L${level + 1}[pos ${nextLevelPosition}, idx ${nextLevelIndex}]: ${matches ? '✓' : '✗'}`,
+    );
+
+    if (!matches) {
+      return {
+        valid: false,
+        pending: false,
+        status: 'invalid',
+        message: `Level ${level} rollup mismatch at level ${level + 1} position ${nextLevelPosition}.`,
+        error: `Computed ${computedRollup} but expected ${expectedHash}`,
+        details,
+        positionPath,
+        levelsHashType,
+        computedRoot: computedRollup,
+        maxLevel: inclusionMeta.maxLevel,
+        maxLevelPosition: inclusionMeta.maxLevelPosition,
+        maxLevelHash: inclusionMeta.maxLevelHash,
+        proof,
+      };
+    }
+
+    offset += count;
+    computedRoot = computedRollup;
+  }
+
+  const finalLevel = levelCounts.length - 1;
+  const finalLevelHashes = proofLevelHashes(proof.proof, levelCounts, finalLevel);
+  const finalLevelStart = proof.level_starts[finalLevel] ?? 0;
+  if (finalLevelHashes.length === 0) {
+    return invalidMerkleProofResult('Missing final proof level', {
+      levelsHashType,
+      proof,
+      positionPath,
+      maxLevel: inclusionMeta.maxLevel,
+      maxLevelPosition: inclusionMeta.maxLevelPosition,
+      maxLevelHash: inclusionMeta.maxLevelHash,
+    });
+  }
+
+  if (finalLevelHashes.length === 1) {
+    computedRoot = finalLevelHashes[0];
+  } else {
+    computedRoot = await hashHexConcat(finalLevelHashes, levelsHashType);
+  }
+
+  if (!proof.root) {
+    details.push('Root pending: final rollup not yet recorded in proof.root.');
+    return {
+      valid: true,
+      pending: false,
+      status: 'valid',
+      message: `Proof verified for existing levels (${levelCounts.length} levels). Root pending.`,
+      details,
+      positionPath,
+      levelsHashType,
+      computedRoot,
+      maxLevel: inclusionMeta.maxLevel,
+      maxLevelPosition: inclusionMeta.maxLevelPosition,
+      maxLevelHash: inclusionMeta.maxLevelHash,
+      proof,
+    };
+  }
+
+  const rootMatches = computedRoot === proof.root;
+  details.push(`Root: ${rootMatches ? '✓' : '✗'} (${proof.root.slice(0, 16)}...)`);
+  if (!rootMatches) {
+    return {
+      valid: false,
+      pending: false,
+      status: 'invalid',
+      message: 'Root hash mismatch.',
+      error: `Expected ${proof.root} but computed ${computedRoot}`,
+      details,
+      positionPath,
+      levelsHashType,
+      computedRoot,
+      maxLevel: inclusionMeta.maxLevel,
+      maxLevelPosition: inclusionMeta.maxLevelPosition,
+      maxLevelHash: inclusionMeta.maxLevelHash,
+      proof,
+    };
+  }
+
+  return {
+    valid: true,
+    pending: false,
+    status: 'valid',
+    message: `Proof verified! ${levelCounts.length} levels, ${proof.proof.length} hashes.`,
+    details,
+    positionPath,
+    levelsHashType,
+    computedRoot,
+    maxLevel: inclusionMeta.maxLevel,
+    maxLevelPosition: inclusionMeta.maxLevelPosition,
+    maxLevelHash: inclusionMeta.maxLevelHash,
+    proof,
   };
 }
 
@@ -576,6 +756,108 @@ function proofInclusionMeta(
     maxLevelPosition,
     maxLevelHash,
   };
+}
+
+function buildPositionPath(position: number, levels: number): number[] {
+  if (levels <= 0) {
+    return [];
+  }
+
+  const path = [position];
+  let currentPosition = position;
+  for (let level = 1; level < levels; level += 1) {
+    currentPosition = Math.floor(currentPosition / 256);
+    path.push(currentPosition);
+  }
+  return path;
+}
+
+function pendingMerkleProofMessage(
+  proof: NormalizedMerkleProof,
+  levelCounts: number[],
+  positionPath: number[],
+): string {
+  const level0Count = levelCounts[0] ?? 0;
+  const level1Position = positionPath[1];
+  const level1Start = proof.level_starts[1] ?? 0;
+  const level1Index = typeof level1Position === 'number' ? level1Position - level1Start : -1;
+
+  if (levelCounts.length < 2) {
+    return `Proof pending: L0 group has ${level0Count} hashes and no L1 rollup yet.`;
+  }
+
+  return `Proof pending: L1[pos ${level1Position}, idx ${level1Index}] has not been generated yet.`;
+}
+
+function pendingMerkleProofDetails(proof: NormalizedMerkleProof, levelCounts: number[]): string[] {
+  const details: string[] = [];
+  const level0Start = proof.level_starts[0] ?? 0;
+  const level0Count = levelCounts[0] ?? 0;
+
+  if (level0Count > 0) {
+    details.push(`L0[${level0Start}..${level0Start + level0Count - 1}] partial group`);
+  }
+
+  const missing = levelCounts.map(count => Math.max(0, 256 - count));
+  const missingL0 = missing[0] ?? 0;
+  if (missingL0 > 0) {
+    details.push(`Need ${missingL0.toLocaleString()} more L0 records to complete current L0 group.`);
+  }
+
+  const last = levelCounts.length - 1;
+  const missingLast = missing[last] ?? 0;
+  if (last > 0 && missingLast > 0) {
+    let needed = missingL0;
+    for (let level = 1; level <= last; level += 1) {
+      const miss = missing[level] ?? 0;
+      if (miss > 0) {
+        needed += Math.max(0, miss - 1) * Math.pow(256, level);
+      }
+    }
+    if (needed > 0) {
+      details.push(`~${needed.toLocaleString()} more L0 records to complete L${last} group (to get next-level rollup).`);
+    }
+  }
+
+  return details;
+}
+
+function higherLevelPendingDetails(level: number, position: number, index: number): string[] {
+  return [
+    `Higher-level rollup pending at L${level}[pos ${position}, idx ${index}].`,
+  ];
+}
+
+function invalidMerkleProofResult(
+  message: string,
+  overrides: Partial<Omit<VerifyMerkleProofWithDetailsResult, 'valid' | 'pending' | 'status' | 'message' | 'details'>> = {},
+): VerifyMerkleProofWithDetailsResult {
+  return {
+    valid: false,
+    pending: false,
+    status: 'invalid',
+    message,
+    error: message,
+    details: [],
+    positionPath: overrides.positionPath ?? [],
+    levelsHashType: overrides.levelsHashType ?? DEFAULT_LEVELS_HASH_TYPE,
+    maxLevel: overrides.maxLevel ?? -1,
+    maxLevelPosition: overrides.maxLevelPosition ?? -1,
+    maxLevelHash: overrides.maxLevelHash ?? '',
+    proof: overrides.proof,
+    computedRoot: overrides.computedRoot,
+  };
+}
+
+function displayLevelsHashType(levelsHashType: string): string {
+  switch (levelsHashType) {
+    case 'sha256':
+      return 'SHA-256';
+    case 'sha3-256':
+      return 'SHA3-256';
+    default:
+      return levelsHashType;
+  }
 }
 
 function proofLevelHashes(allHashes: string[], levelCounts: number[], level: number): string[] {

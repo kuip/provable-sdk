@@ -44,6 +44,27 @@ class VerifyWithInclusionRequest(VerifyRequest, total=False):
     level_checks: List[VerifyLevelCheck]
 
 
+class VerifyMerkleProofWithDetailsRequest(TypedDict, total=False):
+    proof: Dict[str, Any]
+    levels_hash_type: str
+
+
+class VerifyMerkleProofWithDetailsResult(TypedDict, total=False):
+    valid: bool
+    pending: bool
+    status: str
+    message: str
+    error: str
+    details: List[str]
+    positionPath: List[int]
+    levelsHashType: str
+    computedRoot: str
+    maxLevel: int
+    maxLevelPosition: int
+    maxLevelHash: str
+    proof: "NormalizedMerkleProof"
+
+
 class NormalizedKayrosRecord(TypedDict, total=False):
     data_type: str
     data_type_hex: str
