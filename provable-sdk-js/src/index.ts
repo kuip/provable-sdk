@@ -13,6 +13,7 @@ export { prove_data, prove_data_str } from './prove';
 
 // Export verify function
 export { verify, verifyWithInclusion } from './verify';
+export { normalizeMerkleProof, getMerkleProofLevels, checkMerkleProofCompatibility } from './merkleProof';
 
 // Export Lightnet API functions
 export {
@@ -44,6 +45,10 @@ export type {
   VerifyLevelCheck,
   NormalizedKayrosRecord,
   NormalizedMerkleProof,
+  MerkleProofInput,
+  MerkleProofLevel,
+  MerkleProofCompatibilityMismatch,
+  MerkleProofCompatibilityResult,
   LevelCheckResult,
   BatchExistenceCheckResult,
   // Database types

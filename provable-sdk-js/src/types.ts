@@ -147,6 +147,38 @@ export interface NormalizedMerkleProof {
   raw: MerkleProofResponse;
 }
 
+export type MerkleProofInput = MerkleProofResponse | NormalizedMerkleProof;
+
+export interface MerkleProofLevel {
+  level: number;
+  start: number;
+  count: number;
+  hashes: string[];
+}
+
+export interface MerkleProofCompatibilityMismatch {
+  kind: 'data_type' | 'hash_item' | 'position' | 'missing_level' | 'missing_position' | 'hash_mismatch';
+  level?: number;
+  position?: number;
+  previousIndex?: number;
+  nextIndex?: number;
+  previousPosition?: number;
+  nextPosition?: number;
+  previousHash?: string;
+  nextHash?: string;
+  message: string;
+}
+
+export interface MerkleProofCompatibilityResult {
+  compatible: boolean;
+  checkedEntries: number;
+  previous: NormalizedMerkleProof;
+  next: NormalizedMerkleProof;
+  previousLevels: MerkleProofLevel[];
+  nextLevels: MerkleProofLevel[];
+  mismatches: MerkleProofCompatibilityMismatch[];
+}
+
 export interface LevelCheckResult {
   level: number;
   position: number;

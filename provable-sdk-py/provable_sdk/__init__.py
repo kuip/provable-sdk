@@ -8,6 +8,14 @@ from .hash import hash, keccak256, hash_str, keccak256_str, sha256, sha256_str
 from .api import prove_single_hash, get_record_by_hash
 from .prove import prove_data, prove_data_str
 from .verify import verify, verify_with_inclusion, verifyWithInclusion
+from .merkle_proof import (
+    normalize_merkle_proof,
+    get_merkle_proof_levels,
+    check_merkle_proof_compatibility,
+    normalizeMerkleProof,
+    getMerkleProofLevels,
+    checkMerkleProofCompatibility,
+)
 from .lightnet import (
     query_hashes,
     get_database_stats,
@@ -35,6 +43,10 @@ from .types import (
     VerifyLevelCheck,
     NormalizedKayrosRecord,
     NormalizedMerkleProof,
+    MerkleProofInput,
+    MerkleProofLevel,
+    MerkleProofCompatibilityMismatch,
+    MerkleProofCompatibilityResult,
     LevelCheckResult,
     BatchExistenceCheckResult,
     # Database types
@@ -95,6 +107,12 @@ __all__ = [
     "verify",
     "verify_with_inclusion",
     "verifyWithInclusion",
+    "normalize_merkle_proof",
+    "get_merkle_proof_levels",
+    "check_merkle_proof_compatibility",
+    "normalizeMerkleProof",
+    "getMerkleProofLevels",
+    "checkMerkleProofCompatibility",
     # Lightnet functions
     "query_hashes",
     "get_database_stats",
@@ -121,6 +139,10 @@ __all__ = [
     "VerifyLevelCheck",
     "NormalizedKayrosRecord",
     "NormalizedMerkleProof",
+    "MerkleProofInput",
+    "MerkleProofLevel",
+    "MerkleProofCompatibilityMismatch",
+    "MerkleProofCompatibilityResult",
     "LevelCheckResult",
     "BatchExistenceCheckResult",
     "DatabaseQuery",

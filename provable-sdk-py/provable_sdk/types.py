@@ -69,6 +69,39 @@ class NormalizedMerkleProof(TypedDict, total=False):
     raw: Dict[str, Any]
 
 
+MerkleProofInput = Dict[str, Any]
+
+
+class MerkleProofLevel(TypedDict):
+    level: int
+    start: int
+    count: int
+    hashes: List[str]
+
+
+class MerkleProofCompatibilityMismatch(TypedDict, total=False):
+    kind: str
+    level: int
+    position: int
+    previousIndex: int
+    nextIndex: int
+    previousPosition: int
+    nextPosition: int
+    previousHash: str
+    nextHash: str
+    message: str
+
+
+class MerkleProofCompatibilityResult(TypedDict):
+    compatible: bool
+    checkedEntries: int
+    previous: NormalizedMerkleProof
+    next: NormalizedMerkleProof
+    previousLevels: List[MerkleProofLevel]
+    nextLevels: List[MerkleProofLevel]
+    mismatches: List[MerkleProofCompatibilityMismatch]
+
+
 class LevelCheckResult(TypedDict, total=False):
     level: int
     position: int

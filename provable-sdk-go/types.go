@@ -69,6 +69,36 @@ type NormalizedMerkleProof struct {
 	Raw         interface{} `json:"raw,omitempty"`
 }
 
+type MerkleProofLevel struct {
+	Level  int      `json:"level"`
+	Start  int64    `json:"start"`
+	Count  int      `json:"count"`
+	Hashes []string `json:"hashes"`
+}
+
+type MerkleProofCompatibilityMismatch struct {
+	Kind             string `json:"kind"`
+	Level            int    `json:"level,omitempty"`
+	Position         int64  `json:"position,omitempty"`
+	PreviousIndex    int    `json:"previousIndex,omitempty"`
+	NextIndex        int    `json:"nextIndex,omitempty"`
+	PreviousPosition int64  `json:"previousPosition,omitempty"`
+	NextPosition     int64  `json:"nextPosition,omitempty"`
+	PreviousHash     string `json:"previousHash,omitempty"`
+	NextHash         string `json:"nextHash,omitempty"`
+	Message          string `json:"message"`
+}
+
+type MerkleProofCompatibilityResult struct {
+	Compatible    bool                              `json:"compatible"`
+	CheckedEntries int                              `json:"checkedEntries"`
+	Previous      *NormalizedMerkleProof            `json:"previous"`
+	Next          *NormalizedMerkleProof            `json:"next"`
+	PreviousLevels []MerkleProofLevel               `json:"previousLevels"`
+	NextLevels     []MerkleProofLevel               `json:"nextLevels"`
+	Mismatches    []MerkleProofCompatibilityMismatch `json:"mismatches"`
+}
+
 type LevelCheckResult struct {
 	Level     int    `json:"level"`
 	Position  int    `json:"position"`
