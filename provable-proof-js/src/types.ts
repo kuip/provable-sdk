@@ -1,20 +1,30 @@
 import type {
+  GetRecordResponse,
+  ProveSingleHashResponse,
   VerifyLevelCheck,
   VerifyResult,
 } from '@kuip/provable-sdk';
+
+export interface KayrosTimestampResponse {
+  success: boolean;
+  response?: ProveSingleHashResponse;
+  data?: GetRecordResponse;
+  message?: string;
+  error?: string;
+}
 
 export interface KayrosData {
   hash?: string;
   hashAlgorithm?: string;
   timestamp?: {
     service: string;
-    response: unknown;
+    response: KayrosTimestampResponse;
   };
 }
 
 export type KayrosMetadata = KayrosData;
 
-export type ProofDataFormat = 'web_form' | 'web_page' | 'email' | '';
+export type ProofDataFormat = 'web_form' | 'web_page' | 'email' | 'raw_data' | '' | (string & {});
 
 export interface KayrosProof {
   data: string;
