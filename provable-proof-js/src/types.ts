@@ -24,7 +24,14 @@ export interface KayrosData {
 
 export type KayrosMetadata = KayrosData;
 
-export type ProofDataFormat = 'web_form' | 'web_page' | 'email' | 'raw_data' | '' | (string & {});
+export type ProofDataFormat =
+  | 'web_form'
+  | 'web_page'
+  | 'email'
+  | 'raw_data'
+  | 'raw_hash'
+  | ''
+  | (string & {});
 
 export interface KayrosProof {
   data: string;

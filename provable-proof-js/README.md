@@ -21,7 +21,7 @@ All proofs use the same JSON shape:
 }
 ```
 
-`data` is always base64. For JSON payloads, encode the UTF-8 JSON bytes. For email or binary payloads, encode the raw bytes. `data_format` identifies how to decode/render the payload: `web_form`, `web_page`, `email`, or `""`. If it is empty or missing, consumers should fall back to payload introspection.
+`data` is always base64. For JSON payloads, encode the UTF-8 JSON bytes. For email or binary payloads, encode the raw bytes. `data_format` identifies how to decode/render the payload: `web_form`, `web_page`, `email`, `raw_hash`, or `""`. If it is empty or missing, consumers should fall back to payload introspection.
 
 ## Installation
 
@@ -79,6 +79,10 @@ const result = await verifyEnvelope(envelope, {
 ## Proof Data Payloads
 
 The top-level `data` field is always base64. Decode it based on `data_format` first, then fall back to payload introspection when `data_format` is empty or missing.
+
+### `raw_hash`
+
+Decoded data is already the hash bytes registered with Kayros. Envelope verification uses those bytes directly as the Kayros `data_item` instead of hashing the decoded payload again. This is intended for proofs whose payload is a precomputed chain or block hash.
 
 ### `email`
 

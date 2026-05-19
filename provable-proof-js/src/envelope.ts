@@ -218,6 +218,9 @@ export class KayrosEnvelope<T = unknown> {
   }
 
   async computeDataHash(): Promise<string> {
+    if (this.data_format === 'raw_hash') {
+      return bytesToHex(this.dataBytes);
+    }
     return hashBytes(this.dataBytes, this.getHashAlgorithm() as HashAlgorithm);
   }
 }
