@@ -1,6 +1,7 @@
-.PHONY: help test test-js test-py test-go coverage coverage-js coverage-py coverage-go install install-js install-py install-go install-ui clean \
-	build build-js build-proof build-py build-go build-ui publish publish-js publish-proof publish-ui publish-py publish-go publish-all \
-	publish-dry-run publish-dry-run-js publish-dry-run-proof publish-dry-run-ui publish-dry-run-py tag-go version-js version-py version-go
+.PHONY: help test test-js test-py test-go test-rs coverage coverage-js coverage-py coverage-go install install-js install-py install-go install-rs install-ui clean \
+	build build-js build-proof build-py build-go build-rs build-ui publish publish-js publish-proof-js publish-ui publish-py publish-go publish-rs publish-proof-rs publish-all \
+	publish-dry-run publish-dry-run-js publish-dry-run-proof publish-dry-run-ui publish-dry-run-py publish-dry-run-rs-sdk publish-dry-run-rs-proof publish-dry-run-rs \
+	tag-go version-js version-py version-go version-rs-sdk version-rs-proof
 
 # Default target
 help:
@@ -11,6 +12,7 @@ help:
 	@echo "  make test-js       - Run TypeScript SDK tests"
 	@echo "  make test-py       - Run Python SDK tests"
 	@echo "  make test-go       - Run Go SDK tests"
+	@echo "  make test-rs       - Run Rust SDK/proof tests"
 	@echo ""
 	@echo "  make coverage      - Run all tests with coverage"
 	@echo "  make coverage-js   - Run TypeScript tests with coverage"
@@ -22,6 +24,7 @@ help:
 	@echo "  make install-ui    - Install UI package dependencies"
 	@echo "  make install-py    - Install Python dependencies"
 	@echo "  make install-go    - Install Go dependencies"
+	@echo "  make install-rs    - Fetch Rust dependencies"
 	@echo ""
 	@echo "  make build         - Build all SDK packages"
 	@echo "  make build-js      - Build TypeScript package"
@@ -29,24 +32,30 @@ help:
 	@echo "  make build-ui      - Build UI package"
 	@echo "  make build-py      - Build Python package"
 	@echo "  make build-go      - Build/verify Go package"
+	@echo "  make build-rs      - Build Rust packages"
 	@echo ""
 	@echo "  make publish       - Publish all SDK packages (use with caution!)"
 	@echo "  make publish-js    - Publish TypeScript package to npm"
-	@echo "  make publish-proof - Publish Proof package to npm"
+	@echo "  make publish-proof-js - Publish Proof package to npm"
 	@echo "  make publish-ui    - Publish UI package to npm"
 	@echo "  make publish-py    - Publish Python package to PyPI"
 	@echo "  make publish-go    - Tag and push Go module (defaults to JS version; override with VERSION=vX.Y.Z)"
+	@echo "  make publish-rs       - Publish Rust SDK crate to crates.io"
+	@echo "  make publish-proof-rs - Publish Rust proof crate to crates.io"
 	@echo ""
 	@echo "  make publish-dry-run    - Test publish for JS, Proof, UI, and Python without uploading"
 	@echo "  make publish-dry-run-js - Test npm publish without uploading"
 	@echo "  make publish-dry-run-proof - Test Proof npm publish without uploading"
 	@echo "  make publish-dry-run-ui - Test UI npm publish without uploading"
 	@echo "  make publish-dry-run-py - Test PyPI publish without uploading"
+	@echo "  make publish-dry-run-rs-sdk   - Test Rust SDK publish without uploading"
+	@echo "  make publish-dry-run-rs-proof - Test Rust proof publish without uploading"
+	@echo "  make publish-dry-run-rs       - Test Rust publishes without uploading"
 	@echo ""
 	@echo "  make clean         - Clean build artifacts"
 
 # Run all tests
-test: test-js test-py test-go
+test: test-js test-py test-go test-rs
 	@echo ""
 	@echo "✓ All tests completed successfully!"
 
@@ -64,6 +73,11 @@ test-py:
 test-go:
 	@echo "Running Go SDK tests..."
 	@cd provable-sdk-go && go test -v ./...
+
+# Rust tests
+test-rs:
+	@echo "Running Rust SDK/proof tests..."
+	@cargo test --workspace
 
 # Coverage for all SDKs
 coverage: coverage-js coverage-py coverage-go
@@ -89,7 +103,7 @@ coverage-go:
 	@echo "Go coverage report: provable-sdk-go/coverage.html"
 
 # Install all dependencies
-install: install-js install-py install-go
+install: install-js install-py install-go install-rs
 	@echo ""
 	@echo "✓ All dependencies installed!"
 
@@ -113,6 +127,11 @@ install-go:
 	@cd provable-sdk-go && go mod download
 	@cd provable-sdk-go && go mod tidy
 
+# Install Rust dependencies
+install-rs:
+	@echo "Fetching Rust workspace dependencies..."
+	@cargo fetch
+
 # Clean build artifacts
 clean:
 	@echo "Cleaning build artifacts..."
@@ -121,6 +140,7 @@ clean:
 	@cd provable-sdk-py && rm -rf .pytest_cache htmlcov .coverage __pycache__ build dist *.egg-info 2>/dev/null || true
 	@cd provable-sdk-py && find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	@cd provable-sdk-go && rm -f coverage.out coverage.html 2>/dev/null || true
+	@rm -rf target 2>/dev/null || true
 	@echo "✓ Clean complete!"
 
 # Quick test (run tests without verbose output)
@@ -129,6 +149,7 @@ test-quick:
 	@cd provable-sdk-js && npm test > /dev/null 2>&1 && echo "✓ TypeScript tests passed" || echo "✗ TypeScript tests failed"
 	@cd provable-sdk-py && pytest -q > /dev/null 2>&1 && echo "✓ Python tests passed" || echo "✗ Python tests failed"
 	@cd provable-sdk-go && go test ./... > /dev/null 2>&1 && echo "✓ Go tests passed" || echo "✗ Go tests failed"
+	@cargo test --workspace > /dev/null 2>&1 && echo "✓ Rust tests passed" || echo "✗ Rust tests failed"
 
 # Watch mode for development
 watch-js:
@@ -158,7 +179,7 @@ ci: test coverage
 	@echo "✓ CI tests complete!"
 
 # Build targets
-build: build-js build-proof build-ui build-py build-go
+build: build-js build-proof build-ui build-py build-go build-rs
 	@echo ""
 	@echo "✓ All packages built successfully!"
 
@@ -189,6 +210,11 @@ build-go:
 	@cd provable-sdk-go && go build ./...
 	@echo "✓ Go build verification complete!"
 
+build-rs:
+	@echo "Building Rust packages..."
+	@cargo build --workspace
+	@echo "✓ Rust build complete!"
+
 # Publish targets
 publish-js: test-js
 	@echo "Publishing TypeScript SDK to npm..."
@@ -207,7 +233,7 @@ publish-js: test-js
 	git push origin "js-v$$VERSION"
 	@echo "✓ TypeScript SDK published and tagged!"
 
-publish-proof: build-proof
+publish-proof-js: build-proof
 	@echo "Publishing Proof package to npm..."
 	@VERSION=$$(cd provable-proof-js && node -p "require('./package.json').version"); \
 	echo "Version: $$VERSION"; \
@@ -278,6 +304,40 @@ publish-go: test-go
 	echo "✓ Go SDK published with tag go-$$VERSION_VALUE!"; \
 	echo "Users can install with: go get github.com/provable/provable-sdk-go@go-$$VERSION_VALUE"
 
+publish-rs: test-rs
+	@echo "Publishing Rust SDK crate to crates.io..."
+	@VERSION=$$(cd provable-sdk-rs && cargo metadata --no-deps --format-version 1 | python3 -c "import json,sys; print(json.load(sys.stdin)['packages'][0]['version'])"); \
+	echo "Version: $$VERSION"; \
+	echo "⚠️  This will:"; \
+	echo "  1. Publish provable-sdk to crates.io"; \
+	echo "  2. Create git tag rs-sdk-v$$VERSION"; \
+	echo "  3. Push tag and commits to main"; \
+	echo ""; \
+	echo "Press Ctrl+C to cancel, or Enter to continue..."; \
+	read -r; \
+	cd provable-sdk-rs && cargo publish && \
+	cd .. && git tag -a "rs-sdk-v$$VERSION" -m "Release Rust SDK v$$VERSION" && \
+	git push origin main && \
+	git push origin "rs-sdk-v$$VERSION"
+	@echo "✓ Rust SDK published and tagged!"
+
+publish-proof-rs: test-rs
+	@echo "Publishing Rust proof crate to crates.io..."
+	@VERSION=$$(cd provable-proof-rs && cargo metadata --no-deps --format-version 1 | python3 -c "import json,sys; print(json.load(sys.stdin)['packages'][0]['version'])"); \
+	echo "Version: $$VERSION"; \
+	echo "⚠️  This will:"; \
+	echo "  1. Publish provable-proof to crates.io"; \
+	echo "  2. Create git tag rs-proof-v$$VERSION"; \
+	echo "  3. Push tag and commits to main"; \
+	echo ""; \
+	echo "Press Ctrl+C to cancel, or Enter to continue..."; \
+	read -r; \
+	cd provable-proof-rs && cargo publish && \
+	cd .. && git tag -a "rs-proof-v$$VERSION" -m "Release Rust proof crate v$$VERSION" && \
+	git push origin main && \
+	git push origin "rs-proof-v$$VERSION"
+	@echo "✓ Rust proof crate published and tagged!"
+
 # Publish all SDKs (alias for publish-all)
 publish: publish-all
 
@@ -293,15 +353,18 @@ publish-all:
 	@echo "Press Ctrl+C to cancel, or Enter to continue..."
 	@read -r
 	@make publish-js
-	@make publish-proof
+	@make publish-proof-js
 	@make publish-ui
 	@make publish-py
 	@make publish-go
+	@make publish-rs
+	@sleep 10
+	@make publish-proof-rs
 	@echo ""
 	@echo "✓ All SDK packages published!"
 
 # Dry run publish (test without actually publishing)
-publish-dry-run: publish-dry-run-js publish-dry-run-proof publish-dry-run-ui publish-dry-run-py
+publish-dry-run: publish-dry-run-js publish-dry-run-proof publish-dry-run-ui publish-dry-run-py publish-dry-run-rs
 	@echo ""
 	@echo "✓ Dry run completed for all packages!"
 
@@ -326,6 +389,19 @@ publish-dry-run-py: build-py
 	cd provable-sdk-py && python -m twine check dist/provable_sdk-$$VERSION*
 	@echo "✓ Python dry run complete!"
 
+publish-dry-run-rs-sdk: build-rs
+	@echo "Dry run: Publishing Rust SDK crate..."
+	@cd provable-sdk-rs && cargo publish --dry-run
+	@echo "✓ Rust SDK dry run complete!"
+
+publish-dry-run-rs-proof: build-rs
+	@echo "Dry run: Packaging Rust proof crate..."
+	@cd provable-proof-rs && cargo package --config 'patch.crates-io.provable-sdk.path="../provable-sdk-rs"'
+	@echo "✓ Rust proof packaging dry run complete!"
+
+publish-dry-run-rs: publish-dry-run-rs-sdk publish-dry-run-rs-proof
+	@echo "✓ Rust dry run complete!"
+
 # Helper targets for version management
 version-js:
 	@cd provable-sdk-js && npm version
@@ -336,3 +412,9 @@ version-py:
 version-go:
 	@JS_VERSION=$$(cd provable-sdk-js && node -p "require('./package.json').version"); \
 	echo "v$$JS_VERSION"
+
+version-rs-sdk:
+	@cd provable-sdk-rs && cargo metadata --no-deps --format-version 1 | python3 -c "import json,sys; print(json.load(sys.stdin)['packages'][0]['version'])"
+
+version-rs-proof:
+	@cd provable-proof-rs && cargo metadata --no-deps --format-version 1 | python3 -c "import json,sys; print(json.load(sys.stdin)['packages'][0]['version'])"

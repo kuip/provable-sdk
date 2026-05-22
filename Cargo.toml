@@ -1,0 +1,6 @@
+[workspace]
+members = [
+  "provable-sdk-rs",
+  "provable-proof-rs",
+]
+resolver = "2"

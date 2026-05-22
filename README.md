@@ -13,6 +13,8 @@ Each SDK has its own README with detailed usage examples:
 - [Proof Package](./provable-proof-js/README.md)
 - [Python SDK](./provable-sdk-py/README.md)
 - [Go SDK](./provable-sdk-go/README.md)
+- [Rust SDK](./provable-sdk-rs/README.md)
+- [Rust Proof Package](./provable-proof-rs/README.md)
 - [UI Package](./provable-sdk-ui/README.md)
 
 ## Development Quick Start
@@ -30,6 +32,7 @@ From the repo root, npm links the workspace packages locally.
 ```bash
 npm install
 npm run build
+cargo test --workspace
 ```
 
 ## Development Workflow
@@ -67,6 +70,7 @@ This runs all tests and generates coverage reports.
 - **TypeScript SDK**: Node.js 16+
 - **Python SDK**: Python 3.8+
 - **Go SDK**: Go 1.23+
+- **Rust SDKs**: Rust 1.78+
 
 ## License
 

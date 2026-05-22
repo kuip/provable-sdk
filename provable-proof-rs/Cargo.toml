@@ -1,0 +1,19 @@
+[package]
+name = "provable-proof"
+version = "0.1.2"
+edition = "2021"
+description = "Provable proof envelope format for Rust"
+license = "MIT"
+repository = "https://github.com/provable/provable-sdk"
+readme = "README.md"
+
+[lib]
+name = "provable_proof"
+path = "src/lib.rs"
+
+[dependencies]
+base64 = "0.22"
+hex = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+provable-sdk = { version = "0.1.2", path = "../provable-sdk-rs" }
